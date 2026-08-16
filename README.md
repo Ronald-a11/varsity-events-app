@@ -373,12 +373,83 @@ Copy `.env.example` to `.env` and adjust. Everything has a sensible development 
 Setting `DJANGO_DEBUG=False` enables HSTS, SSL redirect, secure cookies, and WhiteNoise's
 compressed manifest storage. Run `python manage.py collectstatic` before deploying.
 
-### Notes for production
+## Deploying to Railway
 
-- SQLite is fine for a pilot; switch `DATABASES` to PostgreSQL for real traffic.
-- Media uploads are served from disk in debug only — put them behind S3 or a CDN.
-- Paynow's callback must be reachable from the public internet, so set
-  `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS` to your real domain before going live.
+The repo carries everything Railway needs: a `Procfile`, `railway.json`, gunicorn, and a
+`/healthz` probe that fails if the database is unreachable — so a container that can't reach
+Postgres is pulled out of rotation instead of serving 500s.
+
+**1. Push the code**
+
+```bash
+railway login
+railway init
+railway up
+```
+
+**2. Add Postgres — this is not optional**
+
+```bash
+railway add --database postgres
+```
+
+Railway's filesystem is rebuilt on every deploy. On SQLite, every ticket, payment and account
+would vanish the next time you push. The Postgres service sets `DATABASE_URL`, which
+`settings.py` picks up on its own.
+
+**3. Set the variables**
+
+| Variable | Value |
+| --- | --- |
+| `DJANGO_SECRET_KEY` | a fresh 50-character random string — never the development one |
+| `DJANGO_DEBUG` | `False` |
+| `PESEPAY_INTEGRATION_KEY` | from your Pesepay dashboard |
+| `PESEPAY_ENCRYPTION_KEY` | from your Pesepay dashboard |
+| `PESEPAY_CODE_ECOCASH` | `PZW211` |
+| `PESEPAY_CODE_INNBUCKS` | `PZW212` |
+| `PESEPAY_CODE_ONEMONEY` | leave unset unless your account offers it |
+| `ECOCASH_MERCHANT_NUMBER` | the wallet direct transfers go to |
+| `DJANGO_MEDIA_ROOT` | `/data/media` if you mount a volume (see below) |
+
+Generate the secret key with:
+
+```bash
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+`ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` need no attention — Railway injects
+`RAILWAY_PUBLIC_DOMAIN` and the settings trust it automatically. Add `DJANGO_ALLOWED_HOSTS`
+and `DJANGO_CSRF_TRUSTED_ORIGINS` only when you attach your own domain.
+
+**4. Confirm the gateway from the deployed instance**
+
+```bash
+railway run python manage.py check_pesepay
+```
+
+This matters more in production than locally: Pesepay's callback has to reach you over the
+public internet, which it never could on `localhost`. Once deployed, payments confirm
+themselves without waiting for the browser to poll.
+
+**5. Seed, if you want the demo content**
+
+```bash
+railway run python manage.py seed_demo
+railway run python manage.py createsuperuser
+```
+
+### Uploaded images
+
+Posters and society logos are written to `MEDIA_ROOT`, which is ephemeral by default — they
+survive until the next deploy. For anything beyond a demo, mount a Railway volume and point
+`DJANGO_MEDIA_ROOT` at it, or move to object storage. Django serves media itself
+(`DJANGO_SERVE_MEDIA`, on by default) since there's no separate web server in front of it;
+that's fine at campus scale and wants a CDN beyond it.
+
+### Other notes for production
+
 - Refunds are recorded (`Payment.mark_refunded`, plus a Django admin action) but not *issued* —
-  they're processed in the Paynow merchant dashboard. Automating that against Paynow's refund
+  they're processed in the Pesepay merchant dashboard. Automating that against Pesepay's refund
   API is the natural next step.
+- `.env` is gitignored and must stay that way. Production credentials belong in Railway's
+  variables, never in the repo.

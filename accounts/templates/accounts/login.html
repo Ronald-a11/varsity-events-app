@@ -29,6 +29,10 @@
             {{ form.remember_me }}
             <span>{{ form.remember_me.label }}</span>
           </label>
+          <a href="{% url 'accounts:password_reset' %}"
+             class="shrink-0 text-sm font-medium text-brand-600 hover:text-brand-700">
+            Forgot password?
+          </a>
         </div>
 
         <input type="hidden" name="next" value="{{ next }}" />

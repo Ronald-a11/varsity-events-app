@@ -1,0 +1,19 @@
+Hi {{ user.first_name|default:user.username }},
+
+A place opened up for {{ event.title }} and you're through from the waitlist.
+{% if not event.is_free %}
+Your seat is held while you pay, but only for a short while - after that it
+goes to the next person waiting.
+{% endif %}
+{{ event.title }}
+{{ event.starts_at|date:"l, j F" }} at {{ event.starts_at|date:"H:i" }}
+{{ event.location_display }}
+{% if event.is_free %}Free{% else %}{{ event.price_display }}{% endif %}
+
+{% if event.is_free %}Confirm your place{% else %}Pay and claim your seat{% endif %}:
+{{ action_url }}
+
+Not going after all? Ignore this and the place passes to the next person.
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.

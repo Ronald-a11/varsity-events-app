@@ -5,7 +5,16 @@ from django.contrib.auth import login
 from django.core.cache import cache
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeView
+from django.conf import settings
+from django.contrib.auth.views import (
+    LoginView,
+    LogoutView,
+    PasswordChangeView,
+    PasswordResetCompleteView,
+    PasswordResetConfirmView,
+    PasswordResetDoneView,
+    PasswordResetView,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 
@@ -102,6 +111,41 @@ class VarsityPasswordChangeView(PasswordChangeView):
     def form_valid(self, response):
         messages.success(self.request, "Your password has been updated.")
         return super().form_valid(response)
+
+
+class TailwindFieldsMixin:
+    """Django's auth views build their own forms; style them like ours."""
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        from core.forms import BASE_INPUT
+
+        for field in form.fields.values():
+            field.widget.attrs["class"] = BASE_INPUT
+        return form
+
+
+class VarsityPasswordResetView(TailwindFieldsMixin, PasswordResetView):
+    template_name = "accounts/password_reset.html"
+    email_template_name = "emails/password_reset.txt"
+    html_email_template_name = "emails/password_reset.html"
+    subject_template_name = "emails/password_reset_subject.txt"
+    success_url = reverse_lazy("accounts:password_reset_done")
+
+    extra_email_context = {"SITE_NAME": settings.SITE_NAME}
+
+
+class VarsityPasswordResetDoneView(PasswordResetDoneView):
+    template_name = "accounts/password_reset_done.html"
+
+
+class VarsityPasswordResetConfirmView(TailwindFieldsMixin, PasswordResetConfirmView):
+    template_name = "accounts/password_reset_confirm.html"
+    success_url = reverse_lazy("accounts:password_reset_complete")
+
+
+class VarsityPasswordResetCompleteView(PasswordResetCompleteView):
+    template_name = "accounts/password_reset_complete.html"
 
 
 def register(request):

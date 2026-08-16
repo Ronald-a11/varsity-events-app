@@ -188,18 +188,33 @@ MESSAGE_TAGS = {
 
 
 # Email
+#
+# Keyed off whether a host is configured, not off DEBUG. That way real SMTP can
+# be tested locally before going live, and a production deploy that forgets its
+# mail settings prints to the log instead of raising on every ticket sold.
 
-if DEBUG:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-else:
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
+
+if EMAIL_HOST:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-    EMAIL_HOST = os.getenv("EMAIL_HOST", "")
-    EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-    EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Varsity Events <no-reply@varsityevents.app>")
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+
+# Emails are read outside any request, so links can't be built from one.
+if RAILWAY_DOMAIN:
+    _default_base = f"https://{RAILWAY_DOMAIN}"
+else:
+    _default_base = "http://localhost:8000"
+SITE_BASE_URL = os.getenv("SITE_BASE_URL", _default_base)
 
 
 # Platform settings
@@ -239,7 +254,9 @@ PESEPAY_METHOD_CODES = {
 # confirmation code; an organizer then verifies it and the ticket confirms.
 # This is the route that needs no merchant code — see the README for the
 # trade-offs against a Paynow merchant account.
-ECOCASH_MERCHANT_NUMBER = os.getenv("ECOCASH_MERCHANT_NUMBER", "0771938039")
+# No default: a real wallet number doesn't belong in a public repo, and a
+# placeholder would quietly send students' money to a stranger.
+ECOCASH_MERCHANT_NUMBER = os.getenv("ECOCASH_MERCHANT_NUMBER", "")
 ECOCASH_MERCHANT_NAME = os.getenv("ECOCASH_MERCHANT_NAME", "Varsity Events")
 ECOCASH_DIRECT_ENABLED = env_bool("ECOCASH_DIRECT_ENABLED", True)
 # Direct transfers are done by hand, so they get a longer seat hold than a gateway push.

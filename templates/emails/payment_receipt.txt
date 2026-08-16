@@ -1,0 +1,16 @@
+Hi {{ user.first_name|default:user.username }},
+
+Receipt for {{ payment.amount_display }} - payment received for {{ event.title }}.
+
+Amount:    {{ payment.amount_display }}
+Method:    {{ payment.get_method_display }}
+Paid:      {{ payment.paid_at|date:"j M Y, H:i" }}
+Reference: {{ payment.reference }}
+Paid to:   {{ event.organization.name }}
+
+View your ticket: {{ ticket_url }}
+
+Something not right? Reply to this email and the organizers will pick it up.
+
+--
+{{ SITE_NAME }}

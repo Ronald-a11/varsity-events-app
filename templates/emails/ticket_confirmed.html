@@ -1,0 +1,71 @@
+{% extends "emails/_base.html" %}
+
+{% block content %}
+  <p style="margin:0 0 4px; font-size:13px; color:#74788f;">Hi {{ user.first_name|default:user.username }},</p>
+  <h1 style="margin:0 0 6px; font-size:22px; line-height:1.25; font-weight:800; color:#1a1b33;">
+    You're going to {{ event.title }}
+  </h1>
+  <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#4a4e69;">
+    Your place is confirmed. Show the code below at the door.
+  </p>
+
+  <!-- The ticket -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="border:2px dashed #c8cad8; border-radius:14px; background:#fafaf7;">
+    <tr>
+      <td style="padding:20px; text-align:center;">
+        <p style="margin:0 0 4px; font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#74788f;">
+          Admit one
+        </p>
+        <p style="margin:0; font-size:26px; font-weight:800; letter-spacing:2px; font-family:'SFMono-Regular',Consolas,monospace; color:#1a1b33;">
+          {{ registration.ticket_code }}
+        </p>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Details -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+    <tr>
+      <td style="padding:8px 0; border-bottom:1px solid #ebecf2; font-size:13px; color:#74788f; width:90px;">When</td>
+      <td style="padding:8px 0; border-bottom:1px solid #ebecf2; font-size:13px; font-weight:600; color:#1a1b33;">
+        {{ event.starts_at|date:"l, j F Y" }} at {{ event.starts_at|date:"H:i" }}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:8px 0; border-bottom:1px solid #ebecf2; font-size:13px; color:#74788f;">Where</td>
+      <td style="padding:8px 0; border-bottom:1px solid #ebecf2; font-size:13px; font-weight:600; color:#1a1b33;">
+        {{ event.location_display }}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:8px 0; border-bottom:1px solid #ebecf2; font-size:13px; color:#74788f;">Host</td>
+      <td style="padding:8px 0; border-bottom:1px solid #ebecf2; font-size:13px; font-weight:600; color:#1a1b33;">
+        {{ event.organization.name }}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:8px 0; font-size:13px; color:#74788f;">Price</td>
+      <td style="padding:8px 0; font-size:13px; font-weight:600; color:#1a1b33;">
+        {% if event.is_free %}Free{% else %}{{ event.price_display }} — paid{% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <!-- Action -->
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+    <tr>
+      <td style="border-radius:10px; background:#2f3480;">
+        <a href="{{ ticket_url }}"
+           style="display:inline-block; padding:12px 24px; font-size:14px; font-weight:700; color:#ffffff; text-decoration:none;">
+          View your ticket &amp; QR code
+        </a>
+      </td>
+    </tr>
+  </table>
+
+  <p style="margin:20px 0 0; font-size:12px; line-height:1.6; color:#74788f;">
+    Can't make it? Cancel from <a href="{{ event_url }}" style="color:#2f3480;">the event page</a> so someone
+    on the waitlist can take your place.
+  </p>
+{% endblock %}

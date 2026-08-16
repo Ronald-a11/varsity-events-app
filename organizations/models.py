@@ -99,6 +99,16 @@ class Organization(models.Model):
             user=user, is_active=True, role__in=[Membership.Role.OWNER, Membership.Role.ADMIN]
         ).exists()
 
+    def managers(self):
+        """The people who can act on this society — who notifications go to."""
+        from accounts.models import User
+
+        return User.objects.filter(
+            memberships__organization=self,
+            memberships__is_active=True,
+            memberships__role__in=[Membership.Role.OWNER, Membership.Role.ADMIN],
+        ).distinct()
+
 
 class Membership(models.Model):
     """Links a user to an organization with a role."""

@@ -1,0 +1,22 @@
+{% extends "emails/_base.html" %}
+
+{% block content %}
+  <h1 style="margin:0 0 6px; font-size:22px; line-height:1.25; font-weight:800; color:#1a1b33;">
+    Email is working
+  </h1>
+  <p style="margin:0 0 18px; font-size:14px; line-height:1.6; color:#4a4e69;">
+    If you're reading this, {{ SITE_NAME }} can reach a real inbox. Ticket
+    confirmations, receipts, waitlist alerts and password resets will all go out.
+  </p>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="border:1px solid #ebecf2; border-radius:12px; background:#fafaf7;">
+    <tr>
+      <td style="padding:14px 16px; font-size:13px; line-height:1.7; color:#4a4e69;">
+        Links in emails point at <strong>{{ base_url }}</strong>. If that isn't
+        the address students use, set <code>SITE_BASE_URL</code> — every button
+        in every email is built from it.
+      </td>
+    </tr>
+  </table>
+{% endblock %}

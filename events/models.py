@@ -522,6 +522,13 @@ class Event(models.Model):
 
         registration = Registration.objects.create(event=self, user=user, status=status)
         self._record_signup(user, status)
+
+        # A free event is done the moment they sign up, so the ticket can go out
+        # now. Paid ones wait for the money — settle() sends it then.
+        if status == Registration.Status.CONFIRMED:
+            from core.mail import send_ticket_confirmed
+
+            send_ticket_confirmed(registration)
         return registration
 
     def _record_signup(self, user, status):
@@ -562,6 +569,14 @@ class Event(models.Model):
                 else Registration.Status.AWAITING_PAYMENT
             )
             nxt.save(update_fields=["status"])
+
+            # Nobody refreshes an event page hoping for a cancellation. Without
+            # this the seat sits unclaimed until it times out.
+            from core.mail import send_ticket_confirmed, send_waitlist_promoted
+
+            send_waitlist_promoted(nxt)
+            if self.is_free:
+                send_ticket_confirmed(nxt)
         return nxt
 
 

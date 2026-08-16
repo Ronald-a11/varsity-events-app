@@ -57,7 +57,9 @@ class CheckoutForm(TailwindFormMixin, forms.Form):
     def _is_offered(self, method):
         """Hide anything this deployment can't actually collect."""
         if method == Payment.Method.ECOCASH_DIRECT:
-            return settings.ECOCASH_DIRECT_ENABLED
+            # Without a wallet number there is nowhere to tell students to send
+            # the money, so don't offer it.
+            return bool(settings.ECOCASH_DIRECT_ENABLED and settings.ECOCASH_MERCHANT_NUMBER)
         if method in self.CODELESS_METHODS:
             return True
         # A wallet with no code would be rejected by Pesepay at the push, so

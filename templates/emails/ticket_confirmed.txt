@@ -1,0 +1,21 @@
+Hi {{ user.first_name|default:user.username }},
+
+You're going to {{ event.title }}.
+
+ADMIT ONE
+Ticket code: {{ registration.ticket_code }}
+
+When:  {{ event.starts_at|date:"l, j F Y" }} at {{ event.starts_at|date:"H:i" }}
+Where: {{ event.location_display }}
+Host:  {{ event.organization.name }}
+Price: {% if event.is_free %}Free{% else %}{{ event.price_display }} - paid{% endif %}
+
+Show the code at the door, or open your ticket with the QR code here:
+{{ ticket_url }}
+
+Can't make it? Cancel from the event page so someone on the waitlist can take
+your place: {{ event_url }}
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.
+We never ask for your PIN or password by email.

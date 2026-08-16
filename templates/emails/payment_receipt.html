@@ -1,0 +1,50 @@
+{% extends "emails/_base.html" %}
+
+{% block content %}
+  <p style="margin:0 0 4px; font-size:13px; color:#74788f;">Hi {{ user.first_name|default:user.username }},</p>
+  <h1 style="margin:0 0 6px; font-size:22px; line-height:1.25; font-weight:800; color:#1a1b33;">
+    Receipt for {{ payment.amount_display }}
+  </h1>
+  <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#4a4e69;">
+    Payment received for {{ event.title }}. Keep this for your records.
+  </p>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="border:1px solid #ebecf2; border-radius:12px;">
+    <tr>
+      <td style="padding:8px 16px; border-bottom:1px solid #ebecf2; font-size:13px; color:#74788f; width:130px;">Amount</td>
+      <td style="padding:8px 16px; border-bottom:1px solid #ebecf2; font-size:15px; font-weight:800; color:#1a1b33;">{{ payment.amount_display }}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 16px; border-bottom:1px solid #ebecf2; font-size:13px; color:#74788f;">Method</td>
+      <td style="padding:8px 16px; border-bottom:1px solid #ebecf2; font-size:13px; color:#1a1b33;">{{ payment.get_method_display }}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 16px; border-bottom:1px solid #ebecf2; font-size:13px; color:#74788f;">Paid</td>
+      <td style="padding:8px 16px; border-bottom:1px solid #ebecf2; font-size:13px; color:#1a1b33;">{{ payment.paid_at|date:"j M Y, H:i" }}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 16px; border-bottom:1px solid #ebecf2; font-size:13px; color:#74788f;">Reference</td>
+      <td style="padding:8px 16px; border-bottom:1px solid #ebecf2; font-size:12px; font-family:'SFMono-Regular',Consolas,monospace; color:#4a4e69;">{{ payment.reference }}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 16px; font-size:13px; color:#74788f;">Paid to</td>
+      <td style="padding:8px 16px; font-size:13px; color:#1a1b33;">{{ event.organization.name }}</td>
+    </tr>
+  </table>
+
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;">
+    <tr>
+      <td style="border-radius:10px; background:#2f3480;">
+        <a href="{{ ticket_url }}"
+           style="display:inline-block; padding:12px 24px; font-size:14px; font-weight:700; color:#ffffff; text-decoration:none;">
+          View my ticket
+        </a>
+      </td>
+    </tr>
+  </table>
+
+  <p style="margin:20px 0 0; font-size:12px; line-height:1.6; color:#74788f;">
+    Something not right? Reply to this email and the organizers will pick it up.
+  </p>
+{% endblock %}

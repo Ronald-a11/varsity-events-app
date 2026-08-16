@@ -139,8 +139,9 @@ The default and fastest route sends money **straight to your own EcoCash wallet*
 in the middle and no merchant code required:
 
 1. Student picks *EcoCash — send straight to us* at checkout.
-2. They get the amount, your number (`0771938039`, copy button included), the `*151#` steps
-   and a reference. **The seat is held for 2 hours**, longer than a gateway push.
+2. They get the amount, your wallet number from `ECOCASH_MERCHANT_NUMBER` (with a copy
+   button), the `*151#` steps and a reference. **The seat is held for 2 hours**, longer
+   than a gateway push.
 3. They send the money and paste back the EcoCash confirmation code.
 4. It lands in **`/pay/verify/`**, where you check the code against your wallet statement and
    hit *Money received* — the ticket confirms itself.
@@ -187,6 +188,36 @@ itself off. The wallet codes default to `PZW201` (EcoCash), `PZW204` (OneMoney) 
 
 Paynow is kept as a legacy gateway (`Payment.gateway`) so payments taken before the switch can
 still settle through their signed callback; nothing new is routed to it.
+
+### Email
+
+Five transactional emails, all rendered as an HTML and plain-text pair from
+`templates/emails/`:
+
+| When | Who gets it |
+| --- | --- |
+| A ticket is confirmed — free sign-up, or the moment a payment settles | the student |
+| A payment settles | the student, as a receipt |
+| A seat frees up and the waitlist moves | the student promoted |
+| An EcoCash code is submitted | the society's owners and admins |
+| An EcoCash code doesn't match the wallet | the student, quoting the code they sent |
+
+Plus the forgotten-password flow at `/accounts/password/reset/`.
+
+**Sending is deliberately best-effort.** `core.mail.send_mail` catches everything and
+logs it — a ticket is confirmed the moment the money lands, and an SMTP timeout at
+that instant must not unwind a payment. There's a test that kills the mail server
+mid-settlement and asserts the ticket still confirms.
+
+The consequence is that a broken mail server is *quiet*. This makes it loud:
+
+```bash
+python manage.py check_email --to you@example.com
+```
+
+With `EMAIL_HOST` unset, mail prints to the console instead of sending, so the whole
+flow works offline. Links inside emails come from `SITE_BASE_URL`, since an email is
+read long after the request that triggered it.
 
 ### The activity stream
 
@@ -366,7 +397,7 @@ Copy `.env.example` to `.env` and adjust. Everything has a sensible development 
 | `PESEPAY_CODE_INNBUCKS`       | `PZW211`                       | Wallet method code                        |
 | `PAYNOW_INTEGRATION_ID`       | blank                          | Legacy gateway, for pre-switch payments   |
 | `PAYNOW_INTEGRATION_KEY`      | blank                          | Legacy gateway                            |
-| `ECOCASH_MERCHANT_NUMBER`     | `0771938039`                   | Wallet students send money to             |
+| `ECOCASH_MERCHANT_NUMBER`     | blank                          | Wallet students send money to             |
 | `ECOCASH_DIRECT_ENABLED`      | `True`                         | `False` hides the direct-transfer option  |
 | `ECOCASH_DIRECT_HOLD_MINUTES` | `120`                          | Seat hold for a hand-made transfer        |
 

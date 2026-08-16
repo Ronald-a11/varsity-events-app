@@ -1,0 +1,56 @@
+{% comment %}
+  Inbox rendering is a decade behind the browser: tables, inline styles, no
+  external CSS, no flexbox. Everything here is deliberately old-fashioned.
+{% endcomment %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ subject }}</title>
+  </head>
+  <body style="margin:0; padding:0; background:#f5f5f1; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:#1a1b33;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f5f1; padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px; background:#fffffd; border-radius:16px; overflow:hidden; border:1px solid #dddee6;">
+
+            <!-- Masthead -->
+            <tr>
+              <td style="background:#12132b; padding:20px 28px;">
+                <span style="font-size:15px; font-weight:800; letter-spacing:-0.3px; text-transform:uppercase; color:#ffffff;">
+                  <span style="color:#ff7a45;">VARSITY</span> EVENTS
+                </span>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding:28px;">
+                {% block content %}{% endblock %}
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="border-top:1px solid #dddee6; padding:18px 28px; background:#fafaf7;">
+                <p style="margin:0 0 6px; font-size:12px; line-height:1.6; color:#74788f;">
+                  {{ SITE_NAME }} — every university event in Zimbabwe, one place.
+                </p>
+                <p style="margin:0; font-size:12px; line-height:1.6; color:#74788f;">
+                  <a href="{{ SITE_BASE_URL }}/events/" style="color:#4a4e69;">Browse events</a> ·
+                  <a href="{{ SITE_BASE_URL }}/accounts/tickets/" style="color:#4a4e69;">My tickets</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <p style="max-width:560px; margin:14px auto 0; font-size:11px; line-height:1.6; color:#9a9db0;">
+            You're getting this because you have an account on {{ SITE_NAME }}.
+            We never ask for your PIN or password by email.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

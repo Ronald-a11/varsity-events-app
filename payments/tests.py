@@ -44,6 +44,9 @@ NO_LIVE_GATEWAYS = override_settings(
         "onemoney": "PZW204",
         "innbucks": "PZW212",
     },
+    # Ships blank so a real wallet number never lands in the repo; the direct
+    # transfer option hides without one, so the suite supplies its own.
+    ECOCASH_MERCHANT_NUMBER="0771234567",
 )
 
 

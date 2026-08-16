@@ -306,6 +306,13 @@ class Payment(models.Model):
             amount=self.amount,
             is_simulated=self.is_simulated,
         )
+
+        # The ticket is already saved. Mail is best-effort by design — see
+        # core.mail — so a mail server having a bad day can't undo a payment.
+        from core.mail import send_payment_receipt, send_ticket_confirmed
+
+        send_ticket_confirmed(registration)
+        send_payment_receipt(self)
         return True
 
     def submit_confirmation(self, code, paid_from=""):
@@ -316,6 +323,12 @@ class Payment(models.Model):
         self.save(
             update_fields=["confirmation_code", "paid_from", "status", "updated_at"]
         )
+
+        # Nobody is watching a queue page. Tell the organizers there's money to
+        # match, or the student waits on a ticket that nothing will release.
+        from core.mail import send_transfer_awaiting_organizer
+
+        send_transfer_awaiting_organizer(self)
         return self
 
     def verify(self, by_user):
@@ -346,6 +359,8 @@ class Payment(models.Model):
         if self.status != self.Status.AWAITING_VERIFICATION:
             return False
 
+        rejected_code = self.confirmation_code
+
         self.status = self.Status.AWAITING_TRANSFER
         self.confirmation_code = ""
         self.rejection_reason = reason or "We couldn't find that transfer. Please check the code."
@@ -359,6 +374,12 @@ class Payment(models.Model):
                 "updated_at",
             ]
         )
+
+        # The email quotes the code they gave us — usually the culprit — and the
+        # field above has just been cleared, so pass it through explicitly.
+        from core.mail import send_transfer_rejected
+
+        send_transfer_rejected(self, rejected_code=rejected_code)
         return True
 
     def expire(self):

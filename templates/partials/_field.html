@@ -1,0 +1,23 @@
+﻿{# Renders one form field with its label, help text and errors. #}
+<div class="{{ wrapper_class|default:'' }}">
+  {% if field.field.widget.input_type == 'checkbox' %}
+    <label class="flex cursor-pointer items-start gap-3">
+      {{ field }}
+      <span class="-mt-0.5">
+        <span class="block text-sm font-medium text-ink-muted">{{ field.label }}</span>
+        {% if field.help_text %}<span class="block text-xs text-ink-subtle">{{ field.help_text }}</span>{% endif %}
+      </span>
+    </label>
+  {% else %}
+    <label for="{{ field.id_for_label }}" class="label">
+      {{ field.label }}
+      {% if not field.field.required and not hide_optional %}<span class="ml-1 text-xs font-normal text-ink-subtle">optional</span>{% endif %}
+    </label>
+    {{ field }}
+    {% if field.help_text %}<p class="help">{{ field.help_text }}</p>{% endif %}
+  {% endif %}
+
+  {% for error in field.errors %}
+    <p class="field-error">{{ error }}</p>
+  {% endfor %}
+</div>

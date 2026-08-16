@@ -1,0 +1,222 @@
+﻿{% load static %}<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
+    <meta name="description" content="{% block description %}{{ SITE_TAGLINE }}{% endblock %}" />
+    <meta name="theme-color" content="#4f46e5" />
+
+    {# Set the theme before first paint so there's no white flash in dark mode. #}
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem("ve-theme");
+          var dark = saved ? saved === "dark"
+            : window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.classList.toggle("dark", dark);
+        } catch (e) {}
+      })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{% static 'css/app.css' %}" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>"
+    />
+    {# Without JS the observer never fires, so reveal elements must start visible. #}
+    <noscript>
+      <style>
+        .reveal { opacity: 1 !important; transform: none !important; }
+      </style>
+    </noscript>
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body class="flex min-h-full flex-col">
+    {# Thin progress bar shown while a page or form is in flight #}
+    <div id="route-progress"
+         class="pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5 origin-left scale-x-0
+                bg-gradient-to-r from-brand-400 via-brand-500 to-azure-500 opacity-0
+                transition-all duration-300 ease-out"></div>
+
+    {% include "partials/_nav.html" %}
+
+    {% include "partials/_messages.html" %}
+
+    <main class="flex-1">{% block content %}{% endblock %}</main>
+
+    {% include "partials/_footer.html" %}
+    {% include "partials/_command_palette.html" %}
+
+    <script>
+      /* ---------------------------------------------------------------
+         Theme
+      --------------------------------------------------------------- */
+      const root = document.documentElement;
+
+      function setTheme(dark) {
+        root.classList.toggle("dark", dark);
+        try { localStorage.setItem("ve-theme", dark ? "dark" : "light"); } catch (e) {}
+        document.querySelectorAll("[data-theme-icon-dark]").forEach((el) => el.classList.toggle("hidden", !dark));
+        document.querySelectorAll("[data-theme-icon-light]").forEach((el) => el.classList.toggle("hidden", dark));
+      }
+      setTheme(root.classList.contains("dark"));
+
+      document.addEventListener("click", (e) => {
+        if (e.target.closest("[data-theme-toggle]")) setTheme(!root.classList.contains("dark"));
+      });
+
+      /* ---------------------------------------------------------------
+         Navigation progress
+      --------------------------------------------------------------- */
+      const bar = document.getElementById("route-progress");
+      let progressTimers = [];
+
+      function startProgress() {
+        progressTimers.forEach(clearTimeout);
+        bar.style.opacity = "1";
+        bar.style.transform = "scaleX(0.3)";
+        progressTimers = [
+          setTimeout(() => (bar.style.transform = "scaleX(0.62)"), 220),
+          setTimeout(() => (bar.style.transform = "scaleX(0.85)"), 900),
+          setTimeout(() => (bar.style.transform = "scaleX(0.94)"), 2200),
+        ];
+      }
+
+      function stopProgress() {
+        progressTimers.forEach(clearTimeout);
+        bar.style.transform = "scaleX(1)";
+        setTimeout(() => {
+          bar.style.opacity = "0";
+          setTimeout(() => (bar.style.transform = "scaleX(0)"), 300);
+        }, 180);
+      }
+
+      window.addEventListener("beforeunload", startProgress);
+      // Coming back via the bfcache leaves the bar mid-flight otherwise.
+      window.addEventListener("pageshow", stopProgress);
+
+      // Same-origin link clicks feel instant if the bar starts on click, not on unload.
+      document.addEventListener("click", (e) => {
+        const link = e.target.closest("a[href]");
+        if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+
+        const href = link.getAttribute("href");
+        if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+        if (link.origin && link.origin !== window.location.origin) return;
+
+        startProgress();
+      });
+
+      /* ---------------------------------------------------------------
+         Buttons show they're working
+      --------------------------------------------------------------- */
+      document.addEventListener("submit", (e) => {
+        const form = e.target;
+        if (form.hasAttribute("data-no-progress")) return;
+
+        startProgress();
+
+        // Auth forms render their own richer busy state; don't blank their label.
+        if (form.hasAttribute("data-auth-form")) return;
+
+        const button = form.querySelector('button[type="submit"], button:not([type])');
+        if (button && !button.hasAttribute("data-loading")) {
+          button.setAttribute("data-loading", "true");
+          button.setAttribute("aria-busy", "true");
+          // If the browser blocks the submit (validation, confirm dialog), give it back.
+          setTimeout(() => {
+            if (document.body.contains(button)) {
+              button.removeAttribute("data-loading");
+              button.removeAttribute("aria-busy");
+            }
+          }, 8000);
+        }
+      });
+
+      /* ---------------------------------------------------------------
+         Images fade in once they've actually decoded
+      --------------------------------------------------------------- */
+      document.querySelectorAll("img.img-fade").forEach((img) => {
+        if (img.complete) return img.classList.add("is-loaded");
+        img.addEventListener("load", () => img.classList.add("is-loaded"), { once: true });
+        img.addEventListener("error", () => img.classList.add("is-loaded"), { once: true });
+      });
+
+      /* ---------------------------------------------------------------
+         Menus and flash messages
+      --------------------------------------------------------------- */
+      document.addEventListener("click", (e) => {
+        if (e.target.closest("[data-menu-toggle]")) {
+          document.querySelector("[data-mobile-menu]")?.classList.toggle("hidden");
+        }
+        // Close any open dropdown when clicking outside of it
+        if (!e.target.closest("[data-dropdown]")) {
+          document.querySelectorAll("[data-dropdown-panel]").forEach((el) => el.classList.add("hidden"));
+        }
+        const close = e.target.closest("[data-dismiss]");
+        if (close) close.closest("[data-alert]")?.remove();
+      });
+
+      setTimeout(() => {
+        document.querySelectorAll("[data-alert]").forEach((el) => {
+          el.style.transition = "opacity .45s, transform .45s";
+          el.style.opacity = "0";
+          el.style.transform = "translateY(-6px)";
+          setTimeout(() => el.remove(), 450);
+        });
+      }, 6500);
+
+      /* ---------------------------------------------------------------
+         Reveal on scroll
+      --------------------------------------------------------------- */
+      const revealables = document.querySelectorAll(".reveal");
+      if (revealables.length) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add("is-visible");
+              io.unobserve(entry.target);
+            });
+          },
+          { rootMargin: "0px 0px -40px 0px", threshold: 0.05 }
+        );
+        revealables.forEach((el) => io.observe(el));
+      }
+
+      /* ---------------------------------------------------------------
+         Save / unsave an event without a page reload
+      --------------------------------------------------------------- */
+      document.addEventListener("submit", async (e) => {
+        const form = e.target.closest("[data-bookmark-form]");
+        if (!form) return;
+        e.preventDefault();
+
+        const btn = form.querySelector("button");
+        btn?.classList.add("scale-90");
+        setTimeout(() => btn?.classList.remove("scale-90"), 180);
+
+        const res = await fetch(form.action, {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value,
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
+        if (!res.ok) return form.submit();
+        const { bookmarked } = await res.json();
+        form.querySelectorAll("[data-saved-on]").forEach((el) => el.classList.toggle("hidden", !bookmarked));
+        form.querySelectorAll("[data-saved-off]").forEach((el) => el.classList.toggle("hidden", bookmarked));
+      });
+    </script>
+    {% block extra_scripts %}{% endblock %}
+  </body>
+</html>

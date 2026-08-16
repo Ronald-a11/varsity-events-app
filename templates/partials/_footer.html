@@ -1,0 +1,61 @@
+﻿<footer class="relative mt-20 overflow-hidden border-t border-hairline bg-surface">
+  <div class="pointer-events-none absolute inset-0 bg-grid-faint bg-grid opacity-40 [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]"></div>
+
+  <div class="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+    <div class="grid gap-10 md:grid-cols-4">
+      <div class="md:col-span-2">
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-flame-500 to-flame-600 shadow-lg">
+            <svg class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3 1.5 8.25 12 13.5l8.25-4.125V15h1.5V8.25L12 3Z" />
+              <path d="M5.25 11.06v3.69c0 1.2 3.02 2.5 6.75 2.5s6.75-1.3 6.75-2.5v-3.69L12 14.62l-6.75-3.56Z" />
+            </svg>
+          </span>
+          <span class="font-display text-sm font-extrabold uppercase tracking-tight text-ink">
+            <span class="text-flame-500">{{ SITE_NAME_LEAD }}</span> {{ SITE_NAME_TAIL }}
+          </span>
+        </div>
+        <p class="mt-4 max-w-sm text-sm leading-relaxed text-ink-subtle">
+          {{ SITE_TAGLINE }} Find what's on at any university in {{ SITE_COUNTRY }}, see exactly where
+          tickets are still on sale, and pay in seconds with
+          {% for wallet in wallets_accepted %}{{ wallet }}{% if not forloop.last %}, {% endif %}{% endfor %} or card.
+        </p>
+        {# Only badge the wallets this merchant account can really collect. #}
+        <div class="mt-5 flex flex-wrap gap-1.5">
+          {% for wallet in wallets_accepted %}
+            <span class="chip-neutral">{% if wallet == 'EcoCash' %}📱{% elif wallet == 'OneMoney' %}📲{% else %}🏦{% endif %} {{ wallet }}</span>
+          {% endfor %}
+          <span class="chip-neutral">💳 Card</span>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-sm font-semibold text-ink">Discover</h3>
+        <ul class="mt-4 space-y-2.5 text-sm text-ink-subtle">
+          <li><a href="{% url 'events:list' %}" class="transition hover:text-brand-500">All events</a></li>
+          <li><a href="{% url 'events:list' %}?when=week" class="transition hover:text-brand-500">This week</a></li>
+          <li><a href="{% url 'events:list' %}?price=free" class="transition hover:text-brand-500">Free entry</a></li>
+          <li><a href="{% url 'events:list' %}?tickets=available" class="transition hover:text-brand-500">Tickets available</a></li>
+          <li><a href="{% url 'events:gigs' %}" class="transition hover:text-brand-500">Varsity Gigs</a></li>
+          <li><a href="{% url 'organizations:list' %}" class="transition hover:text-brand-500">Societies</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="text-sm font-semibold text-ink">Organizers</h3>
+        <ul class="mt-4 space-y-2.5 text-sm text-ink-subtle">
+          <li><a href="{% url 'organizations:create' %}" class="transition hover:text-brand-500">Register a society</a></li>
+          <li><a href="{% url 'events:create' %}" class="transition hover:text-brand-500">Publish an event</a></li>
+          <li><a href="{% url 'core:about' %}" class="transition hover:text-brand-500">How it works</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-12 flex flex-col items-center justify-between gap-3 border-t border-hairline pt-6 sm:flex-row">
+      <p class="text-xs text-ink-subtle">&copy; {% now "Y" %} {{ SITE_NAME }}. Built for {{ SITE_COUNTRY }}'s universities.</p>
+      <p class="flex items-center gap-1.5 text-xs text-ink-subtle">
+        Payments secured by <span class="font-semibold text-ink">Pesepay</span> · Django &amp; Tailwind
+      </p>
+    </div>
+  </div>
+</footer>

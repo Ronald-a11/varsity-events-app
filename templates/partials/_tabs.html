@@ -1,0 +1,31 @@
+{% comment %}
+Underline tabs. Pass `tabs` as a list of dicts:
+
+    [{"label": "Upcoming", "url": "?", "active": True, "count": 12}, …]
+
+`count` is optional. The strip scrolls horizontally on narrow screens rather
+than wrapping, so the row never becomes two lines of half-height targets.
+{% endcomment %}
+<div class="border-b border-hairline">
+  <div class="no-scrollbar -mb-px flex gap-1 overflow-x-auto" role="tablist">
+    {% for tab in tabs %}
+      <a href="{{ tab.url }}"
+         role="tab"
+         {% if tab.active %}aria-selected="true"{% endif %}
+         class="group flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition
+                {% if tab.active %}
+                  border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400
+                {% else %}
+                  border-transparent text-ink-subtle hover:border-hairline hover:text-ink
+                {% endif %}">
+        {{ tab.label }}
+        {% if tab.count is not None %}
+          <span class="rounded-full px-1.5 py-0.5 text-2xs font-bold transition
+                       {% if tab.active %}bg-brand-500/15 text-brand-600 dark:text-brand-400{% else %}bg-surface-3 text-ink-subtle{% endif %}">
+            {{ tab.count }}
+          </span>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </div>
+</div>

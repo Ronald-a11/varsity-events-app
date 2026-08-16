@@ -1,0 +1,227 @@
+﻿{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}What's on · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <!-- Greeting -->
+  <section class="border-b border-hairline bg-surface">
+    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+            {% firstof user.first_name user.username %}, here's what's on
+          </h1>
+          <p class="mt-1 text-sm text-ink-subtle">
+            Live right now across {{ universities|length }} Zimbabwean universit{{ universities|length|pluralize:"y,ies" }}
+            {% if user.university %} — starting with {{ user.university }}{% endif %}.
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <a href="{% url 'events:list' %}" class="btn-secondary">Browse everything</a>
+          {% if user.can_organize %}
+            <a href="{% url 'events:create' %}" class="btn-primary">Create event</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Prompt to finish the profile -->
+      {% if needs_profile %}
+        <div class="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <span class="text-xl">👋</span>
+          <p class="mr-auto text-sm text-amber-700 dark:text-amber-300">
+            Add your university and course so organizers know who's coming — and so we can show you
+            events on your own campus first.
+          </p>
+          <a href="{% url 'accounts:profile_edit' %}?welcome=1" class="btn-primary btn-sm">Complete profile</a>
+        </div>
+      {% endif %}
+
+      <!-- Your next tickets -->
+      {% if upcoming_tickets %}
+        <div class="mt-5 flex gap-3 overflow-x-auto no-scrollbar pb-1">
+          {% for reg in upcoming_tickets %}
+            <a href="{% url 'events:ticket' reg.ticket_code %}"
+               class="flex shrink-0 items-center gap-3 rounded-xl border border-hairline bg-surface px-4 py-2.5 hover:border-brand-300">
+              <span class="flex h-9 w-9 flex-col items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                <span class="text-[9px] font-bold uppercase leading-none">{{ reg.event.starts_at|date:"M" }}</span>
+                <span class="text-sm font-extrabold leading-none">{{ reg.event.starts_at|date:"j" }}</span>
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-semibold text-ink">{{ reg.event.title }}</span>
+                <span class="block text-xs text-ink-subtle">Your ticket · {{ reg.ticket_code }}</span>
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- University switcher -->
+  {% if universities %}
+    <section class="border-b border-hairline bg-surface">
+      <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <div class="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+          <a href="{% url 'events:list' %}" class="chip shrink-0 bg-brand-900 text-white">All universities</a>
+          {% for uni in universities %}
+            <a href="{% url 'events:list' %}?university={{ uni.slug }}"
+               class="chip shrink-0 whitespace-nowrap {% if user.university_id == uni.id %}bg-brand-600 text-white{% else %}bg-surface-3 text-ink-muted hover:bg-surface-3{% endif %}"
+               title="{{ uni.name }}">
+              {{ uni }} <span class="opacity-60">{{ uni.event_count }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <!-- Coming up next -->
+    <section class="pt-10">
+      <h2 class="section-title">Coming up next</h2>
+      <p class="section-sub">The soonest events across every university.</p>
+      <!-- Stacked column, same as the featured picks on the events and gigs pages -->
+      <div class="mt-5 flex flex-col gap-5">
+        {% for event in nationwide|slice:":4" %}
+          {% include "partials/_event_featured.html" %}
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- Happening now -->
+    {% if happening_now %}
+      <section class="pt-10">
+        <h2 class="flex items-center gap-2 section-title">
+          <span class="flex h-2.5 w-2.5 items-center justify-center">
+            <span class="absolute h-2.5 w-2.5 animate-ping rounded-full bg-emerald-400"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+          </span>
+          Happening right now
+        </h2>
+        <!-- Same stacked column as the featured picks elsewhere -->
+        <div class="mt-5 flex flex-col gap-5">
+          {% for event in happening_now %}
+            {% include "partials/_event_featured.html" %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- At your university -->
+    {% if my_university_events %}
+      <section class="pt-12">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <h2 class="section-title">At {{ user.university }}</h2>
+            <p class="mt-1 text-sm text-ink-subtle">{{ my_university_total }} event{{ my_university_total|pluralize }} coming up on your campus.</p>
+          </div>
+          <a href="{% url 'events:list' %}?university={{ user.university.slug }}" class="btn-ghost btn-sm shrink-0">See all →</a>
+        </div>
+        <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {% for event in my_university_events %}
+            {% include "partials/_event_card.html" %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Going fast -->
+    {% if tickets_going_fast %}
+      <section class="pt-12">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <h2 class="section-title">Tickets going fast</h2>
+            <p class="mt-1 text-sm text-ink-subtle">Filling up quickest right now — grab one before they're gone.</p>
+          </div>
+        </div>
+        <div class="mt-5 flex flex-col gap-5">
+          {% for event in tickets_going_fast %}
+            {% include "partials/_event_featured.html" %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Matched to interests -->
+    {% if for_you %}
+      <section class="pt-12">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <h2 class="section-title">Because you're into {% for i in user.interests.all %}{{ i.name|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}</h2>
+            <p class="mt-1 text-sm text-ink-subtle">Matched to the interests on your profile.</p>
+          </div>
+          <a href="{% url 'accounts:profile_edit' %}" class="btn-ghost btn-sm shrink-0">Edit interests</a>
+        </div>
+        <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {% for event in for_you %}
+            {% include "partials/_event_card.html" %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- From societies they follow -->
+    {% if from_societies %}
+      <section class="pt-12">
+        <h2 class="section-title">From societies you follow</h2>
+        <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {% for event in from_societies %}
+            {% include "partials/_event_card.html" %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Nationwide -->
+    <section class="pt-12">
+      <div class="flex items-end justify-between gap-4">
+        <div>
+          <h2 class="section-title">Across Zimbabwe</h2>
+          <p class="mt-1 text-sm text-ink-subtle">
+            Every university, every society — {{ this_week_count }} event{{ this_week_count|pluralize }} in the next seven days.
+          </p>
+        </div>
+        <a href="{% url 'events:list' %}" class="btn-ghost btn-sm shrink-0">Browse all →</a>
+      </div>
+
+      {% if nationwide %}
+        <!-- Set as a numbered column, the same way the listings page reads -->
+        <div class="mt-5">
+          {% include "partials/_masthead.html" with edition="National Edition" folio=nationwide_folio %}
+          <div class="divide-y divide-hairline">
+            {% for event in nationwide %}
+              {% include "partials/_news_row.html" with counter=forloop.counter %}
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div class="card mt-5 px-6 py-14 text-center">
+          <p class="text-4xl">🗓️</p>
+          <h3 class="mt-3 text-lg font-semibold text-ink">Nothing scheduled yet</h3>
+          <p class="mt-1 text-sm text-ink-subtle">Be the first to put something on the national calendar.</p>
+          <a href="{% url 'events:create' %}" class="btn-primary mt-5">Create an event</a>
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- Browse by category -->
+    {% if categories %}
+      <section class="py-14">
+        <h2 class="section-title">Browse by what you're after</h2>
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {% for category in categories %}
+            <a href="{% url 'events:list' %}?category={{ category.slug }}"
+               class="card flex items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:shadow-lift">
+              <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-{{ category.color }}-50 text-xl">{{ category.icon }}</span>
+              <span class="min-w-0">
+                <span class="block truncate font-semibold text-ink">{{ category.name }}</span>
+                <span class="block truncate text-xs text-ink-subtle">{{ category.description }}</span>
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

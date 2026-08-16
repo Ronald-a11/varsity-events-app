@@ -1,0 +1,87 @@
+{# The lead story: one event given the full front-page treatment. #}
+<article class="card card-hover group overflow-hidden reveal">
+  <div class="grid lg:grid-cols-2">
+    <a href="{{ event.get_absolute_url }}" class="relative block aspect-[16/10] overflow-hidden bg-surface-3 lg:aspect-auto lg:min-h-[22rem]">
+      {% if event.banner %}
+        <img src="{{ event.banner.url }}" alt="{{ event.title }}"
+             class="img-fade h-full w-full object-cover transition duration-700 ease-spring group-hover:scale-[1.04]"
+             loading="eager" decoding="async" />
+      {% else %}
+        <div class="relative h-full w-full bg-gradient-to-br from-brand-500 via-brand-600 to-azure-600">
+          <div class="absolute inset-0 bg-grid-faint bg-grid opacity-30"></div>
+          <span class="absolute inset-0 flex items-center justify-center text-6xl opacity-90 transition duration-500 ease-spring group-hover:scale-110">
+            {{ event.category.icon|default:"🎓" }}
+          </span>
+        </div>
+      {% endif %}
+
+      <div class="absolute inset-0 bg-gradient-to-t from-brand-950/60 via-transparent to-transparent"></div>
+
+      <div class="absolute left-4 top-4 flex flex-col gap-1.5">
+        <span class="chip bg-brand-600 text-white shadow-lg">Lead story</span>
+        {% if event.is_live %}
+          <span class="chip bg-emerald-500 text-white shadow-lg">
+            <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>Happening now
+          </span>
+        {% endif %}
+      </div>
+
+      {% if event.organization.university %}
+        <span class="absolute bottom-4 left-4 chip bg-white/15 text-white ring-1 ring-inset ring-white/25 backdrop-blur-md">
+          {{ event.organization.university }}
+        </span>
+      {% endif %}
+    </a>
+
+    <div class="flex flex-col justify-center p-6 sm:p-8">
+      <!-- Kicker: category and the availability verdict, newspaper style -->
+      <div class="flex flex-wrap items-center gap-2">
+        {% if event.category %}
+          <span class="text-2xs font-bold uppercase tracking-widest text-{{ event.category.color }}-600 dark:text-{{ event.category.color }}-400">
+            {{ event.category.name }}
+          </span>
+          <span class="text-ink-subtle opacity-40">·</span>
+        {% endif %}
+        <span class="text-2xs font-semibold uppercase tracking-widest text-ink-subtle">
+          {{ event.starts_at|date:"l j F" }}
+        </span>
+      </div>
+
+      <h2 class="mt-3 font-display text-2xl font-extrabold leading-tight tracking-tightest text-ink text-balance sm:text-3xl">
+        <a href="{{ event.get_absolute_url }}" class="transition hover:text-brand-500">{{ event.title }}</a>
+      </h2>
+
+      {% if event.summary %}
+        <p class="mt-3 text-base leading-relaxed text-ink-muted">{{ event.summary }}</p>
+      {% endif %}
+
+      <!-- Byline -->
+      <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-ink-subtle">
+        <a href="{{ event.organization.get_absolute_url }}" class="flex items-center gap-2 font-medium text-ink transition hover:text-brand-500">
+          {% if event.organization.logo %}
+            <img src="{{ event.organization.logo.url }}" alt="" class="h-6 w-6 rounded-lg object-cover" />
+          {% else %}
+            <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-surface-3 text-2xs font-bold text-ink-muted">{{ event.organization.initials }}</span>
+          {% endif %}
+          {{ event.organization.name }}
+        </a>
+        <span class="opacity-40">·</span>
+        <span>{{ event.starts_at|date:"H:i" }}</span>
+        <span class="opacity-40">·</span>
+        <span class="truncate">{{ event.location_display }}</span>
+      </div>
+
+      <div class="mt-5 flex flex-wrap items-center gap-2">
+        <a href="{{ event.get_absolute_url }}" class="btn-primary">
+          {% if event.is_free %}Get a free ticket{% else %}Tickets · {{ event.price_display }}{% endif %}
+        </a>
+        {% include "partials/_availability.html" with event=event %}
+        {% if event.tickets_left_display %}
+          <span class="chip bg-{{ event.tickets_tone }}-500/10 text-{{ event.tickets_tone }}-600 dark:text-{{ event.tickets_tone }}-400">
+            🎟️ {{ event.tickets_left_display }}
+          </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</article>

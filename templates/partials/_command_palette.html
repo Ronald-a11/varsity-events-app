@@ -1,0 +1,153 @@
+﻿{# ⌘K / Ctrl-K quick search across events, societies and universities. #}
+<div id="palette" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-brand-950/60 backdrop-blur-sm" data-palette-close></div>
+
+  <div class="relative mx-auto mt-[12vh] w-full max-w-xl animate-scale-in px-4">
+    <div class="overflow-hidden rounded-2xl border border-hairline bg-surface shadow-2xl">
+      <!-- Input -->
+      <div class="flex items-center gap-3 border-b border-hairline px-4">
+        <svg class="h-5 w-5 shrink-0 text-ink-subtle" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.3-4.3m1.8-4.7a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+        </svg>
+        <input
+          id="palette-input"
+          type="text"
+          autocomplete="off"
+          placeholder="Search events, societies, universities…"
+          class="w-full border-0 bg-transparent py-4 text-sm text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-0"
+        />
+        <span data-palette-spinner class="spinner hidden text-brand-500" aria-hidden="true"></span>
+        <kbd class="hidden rounded border border-hairline px-1.5 py-0.5 text-2xs font-medium text-ink-subtle sm:block">ESC</kbd>
+      </div>
+
+      <!-- Results -->
+      <div id="palette-results" class="max-h-[52vh] overflow-y-auto p-2">
+        <p class="px-3 py-8 text-center text-sm text-ink-subtle">Start typing to search…</p>
+      </div>
+
+      <!-- Footer hints -->
+      <div class="flex items-center gap-4 border-t border-hairline bg-surface-3 px-4 py-2.5 text-2xs text-ink-subtle">
+        <span class="flex items-center gap-1"><kbd class="rounded border border-hairline px-1 py-0.5">↑</kbd><kbd class="rounded border border-hairline px-1 py-0.5">↓</kbd> navigate</span>
+        <span class="flex items-center gap-1"><kbd class="rounded border border-hairline px-1 py-0.5">↵</kbd> open</span>
+        <a href="{% url 'events:list' %}" class="ml-auto hover:text-brand-500">Browse all events →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const palette = document.getElementById("palette");
+    const input = document.getElementById("palette-input");
+    const results = document.getElementById("palette-results");
+    const endpoint = "{% url 'core:quick_search' %}";
+
+    let items = [];
+    let active = 0;
+    let timer = null;
+
+    function open() {
+      palette.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      input.value = "";
+      items = [];
+      results.innerHTML = '<p class="px-3 py-8 text-center text-sm text-ink-subtle">Start typing to search…</p>';
+      setTimeout(() => input.focus(), 20);
+    }
+
+    function close() {
+      palette.classList.add("hidden");
+      document.body.style.overflow = "";
+    }
+
+    function render() {
+      if (!items.length) {
+        results.innerHTML =
+          '<p class="px-3 py-8 text-center text-sm text-ink-subtle">Nothing matched that.</p>';
+        return;
+      }
+      results.innerHTML = items
+        .map(
+          (item, i) => `
+          <a href="${item.url}" data-index="${i}"
+             class="flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${
+               i === active ? "bg-brand-500/10 text-brand-600" : "hover:bg-surface-3"
+             }">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-3 text-base">${item.icon}</span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-semibold text-ink">${item.title}</span>
+              <span class="block truncate text-xs text-ink-subtle">${item.subtitle}</span>
+            </span>
+            ${item.badge ? `<span class="chip shrink-0 bg-surface-3 text-ink-muted">${item.badge}</span>` : ""}
+          </a>`
+        )
+        .join("");
+    }
+
+    const spinner = document.querySelector("[data-palette-spinner]");
+
+    async function search(query) {
+      if (!query.trim()) {
+        items = [];
+        results.innerHTML =
+          '<p class="px-3 py-8 text-center text-sm text-ink-subtle">Start typing to search…</p>';
+        return;
+      }
+
+      // Skeleton rows carry the shape of the answer; the spinner says it's live.
+      spinner.classList.remove("hidden");
+      results.classList.add("is-loading");
+      results.innerHTML = Array.from({ length: 3 })
+        .map(() => '<div class="skeleton mx-1 my-1.5 h-14"></div>')
+        .join("");
+
+      try {
+        const res = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
+        const data = await res.json();
+        items = data.results || [];
+        active = 0;
+        render();
+      } catch (e) {
+        results.innerHTML =
+          '<p class="px-3 py-8 text-center text-sm text-rose-500">Search is unavailable right now.</p>';
+      } finally {
+        spinner.classList.add("hidden");
+        results.classList.remove("is-loading");
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        palette.classList.contains("hidden") ? open() : close();
+        return;
+      }
+      if (palette.classList.contains("hidden")) return;
+
+      if (e.key === "Escape") return close();
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!items.length) return;
+        active = (active + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+        render();
+      }
+      if (e.key === "Enter" && items[active]) {
+        e.preventDefault();
+        window.location = items[active].url;
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("[data-palette-open]")) { e.preventDefault(); open(); }
+      if (e.target.closest("[data-palette-close]")) close();
+    });
+
+    input.addEventListener("input", (e) => {
+      clearTimeout(timer);
+      const value = e.target.value;
+      timer = setTimeout(() => search(value), 180);
+    });
+  })();
+</script>

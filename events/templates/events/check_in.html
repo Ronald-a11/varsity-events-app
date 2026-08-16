@@ -1,0 +1,92 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Check-in · {{ event.title }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+    <a href="{% url 'events:manage_attendees' event.slug %}" class="text-sm text-ink-subtle hover:text-brand-600">← Back to attendees</a>
+
+    <div class="mt-2">
+      <h1 class="text-2xl font-extrabold tracking-tight text-ink">Check-in desk</h1>
+      <p class="mt-1 text-sm text-ink-subtle">{{ event.title }} · {{ event.starts_at|date:"j M, H:i" }}</p>
+    </div>
+
+    <div class="mt-6 grid grid-cols-3 gap-3">
+      <div class="card p-4 text-center">
+        <p class="text-2xl font-extrabold text-ink">{{ event.checked_in_count }}</p>
+        <p class="text-xs text-ink-subtle">checked in</p>
+      </div>
+      <div class="card p-4 text-center">
+        <p class="text-2xl font-extrabold text-ink">{{ event.attendee_count }}</p>
+        <p class="text-xs text-ink-subtle">expected</p>
+      </div>
+      <div class="card p-4 text-center">
+        <p class="text-2xl font-extrabold text-ink">{{ event.waitlist_count }}</p>
+        <p class="text-xs text-ink-subtle">on waitlist</p>
+      </div>
+    </div>
+
+    <!-- Scan result -->
+    {% if result %}
+      <div class="mt-6 rounded-2xl border p-5
+        {% if result.state == 'ok' %}border-emerald-500/30 bg-emerald-500/10
+        {% elif result.state == 'duplicate' %}border-amber-500/30 bg-amber-500/10
+        {% else %}border-rose-500/30 bg-rose-500/10{% endif %}">
+        <div class="flex items-center gap-4">
+          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl
+            {% if result.state == 'ok' %}bg-emerald-600 text-white
+            {% elif result.state == 'duplicate' %}bg-amber-500 text-white
+            {% else %}bg-rose-600 text-white{% endif %}">
+            {% if result.state == 'ok' %}✓{% elif result.state == 'duplicate' %}!{% else %}✕{% endif %}
+          </span>
+          <div class="min-w-0">
+            <p class="text-lg font-bold
+              {% if result.state == 'ok' %}text-emerald-700 dark:text-emerald-300
+              {% elif result.state == 'duplicate' %}text-amber-700 dark:text-amber-300
+              {% else %}text-rose-700 dark:text-rose-300{% endif %}">{{ result.message }}</p>
+            {% if result.registration %}
+              <p class="mt-0.5 text-sm text-ink-muted">
+                {{ result.registration.user.email }}
+                {% if result.registration.user.course %} · {{ result.registration.user.course }}{% endif %}
+              </p>
+              {% if result.registration.notes %}
+                <p class="mt-1 text-sm italic text-ink-subtle">“{{ result.registration.notes }}”</p>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Scan form -->
+    <form method="post" class="card mt-6 p-6">
+      {% csrf_token %}
+      <label for="{{ form.ticket_code.id_for_label }}" class="label">Scan or type the ticket code</label>
+      {{ form.ticket_code }}
+      {% for error in form.ticket_code.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      <button type="submit" class="btn-primary mt-4 w-full py-3">Check in</button>
+      <p class="mt-3 text-center text-xs text-ink-subtle">
+        Codes look like <span class="font-mono">VE-8F3K-2QD7</span>. Attendees show them on their ticket page.
+      </p>
+    </form>
+
+    <!-- Recent -->
+    {% if recent %}
+      <section class="mt-8">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">Just arrived</h2>
+        <ul class="mt-3 divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline bg-surface">
+          {% for reg in recent %}
+            <li class="flex items-center gap-3 px-4 py-3">
+              <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{{ reg.user.initials }}</span>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium text-ink">{{ reg.user.display_name }}</p>
+                <p class="truncate font-mono text-xs text-ink-subtle">{{ reg.ticket_code }}</p>
+              </div>
+              <time class="text-xs text-ink-subtle">{{ reg.checked_in_at|date:"H:i" }}</time>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

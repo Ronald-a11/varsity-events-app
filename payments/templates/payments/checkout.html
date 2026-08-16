@@ -1,0 +1,165 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Pay for {{ event.title }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+    <a href="{{ event.get_absolute_url }}" class="text-sm text-ink-subtle hover:text-brand-600">← Back to the event</a>
+
+    <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Complete your payment</h1>
+    <p class="mt-1 text-sm text-ink-subtle">
+      Your place is held while you pay — 30 minutes for a card or wallet push,
+      2 hours if you send EcoCash yourself.
+    </p>
+
+    {% if is_simulated %}
+      <div class="mt-6 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <span class="text-lg">🧪</span>
+        <div class="text-sm text-amber-700 dark:text-amber-300">
+          <p class="font-semibold">Simulation mode</p>
+          <p class="mt-0.5">
+            No Pesepay credentials are configured, so no real money moves and no prompt is sent to any phone.
+            You'll get a local page where you can approve or decline, exactly as the live flow behaves.
+          </p>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- What you're paying for -->
+    <div class="card mt-6 overflow-hidden">
+      <div class="flex items-start gap-4 border-b border-hairline p-5">
+        <div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400">
+          <span class="text-[10px] font-bold uppercase leading-none">{{ event.starts_at|date:"M" }}</span>
+          <span class="text-lg font-extrabold leading-none">{{ event.starts_at|date:"j" }}</span>
+        </div>
+        <div class="min-w-0 flex-1">
+          <h2 class="font-bold text-ink">{{ event.title }}</h2>
+          <p class="mt-0.5 truncate text-sm text-ink-subtle">{{ event.organization.name }}</p>
+          <p class="mt-0.5 truncate text-xs text-ink-subtle">
+            {{ event.starts_at|date:"D, j M · H:i" }} · {{ event.location_display }}
+          </p>
+        </div>
+      </div>
+      <dl class="flex items-center justify-between px-5 py-4">
+        <dt class="text-sm text-ink-subtle">Ticket {{ registration.ticket_code }}</dt>
+        <dd class="text-2xl font-extrabold text-ink">{{ event.price_display }}</dd>
+      </dl>
+    </div>
+
+    <!-- Method -->
+    <form method="post" class="card mt-5 p-6" novalidate data-checkout-form>
+      {% csrf_token %}
+
+      <p class="mb-4 hidden rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300"
+         data-checkout-error role="alert"></p>
+
+      <fieldset>
+        <legend class="label">{{ form.method.label }}</legend>
+        <div class="mt-1 space-y-2">
+          {% for radio in form.method %}
+            <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-hairline p-3.5 text-sm transition hover:border-brand-400/60 hover:bg-brand-500/5 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10">
+              <span class="mt-0.5">{{ radio.tag }}</span>
+              <span class="text-lg leading-none">
+                {% if radio.data.value == 'ecocash_direct' %}📱
+                {% elif radio.data.value == 'ecocash' %}📱
+                {% elif radio.data.value == 'onemoney' %}📲
+                {% elif radio.data.value == 'innbucks' %}🏦
+                {% else %}💳{% endif %}
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium text-ink">{{ radio.choice_label }}</span>
+                  {% if radio.data.value == 'ecocash_direct' %}
+                    <span class="chip bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Fastest · no fees</span>
+                  {% endif %}
+                </span>
+                {% if radio.data.value == 'ecocash_direct' %}
+                  <span class="mt-0.5 block text-xs text-ink-subtle">
+                    Send {{ event.price_display }} straight to
+                    <span class="font-mono font-semibold text-ink">{{ ecocash_number }}</span>,
+                    then enter your confirmation code.
+                  </span>
+                {% elif radio.data.value == 'web' %}
+                  <span class="mt-0.5 block text-xs text-ink-subtle">Pay on Pesepay's secure page with a card or Zimswitch.</span>
+                {% else %}
+                  <span class="mt-0.5 block text-xs text-ink-subtle">Pesepay pushes a PIN prompt to your phone.</span>
+                {% endif %}
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+        {% for error in form.method.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </fieldset>
+
+      <div class="mt-5" data-phone-field>
+        {# Required whenever it's on screen, so the "optional" marker would lie. #}
+        {% include "partials/_field.html" with field=form.phone hide_optional=True %}
+
+        <!-- What's about to happen, before it happens -->
+        <div class="mt-3 flex items-start gap-3 rounded-xl border border-brand-500/25 bg-brand-500/5 p-3.5">
+          <span class="text-lg leading-none">📲</span>
+          <p class="text-xs leading-relaxed text-ink-subtle">
+            We'll push a PIN prompt to this number. Enter your PIN
+            <strong class="font-semibold text-ink">on your phone</strong> — never on this
+            site — and your ticket confirms itself.
+          </p>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary mt-6 w-full py-3" data-checkout-submit>
+        <span data-checkout-label data-idle="Continue · {{ event.price_display }}">
+          Continue · {{ event.price_display }}
+        </span>
+      </button>
+
+      <p class="mt-3 text-center text-xs text-ink-subtle">
+        Card and wallet payments are processed by Pesepay. We never see or store your
+        PIN or card details.
+      </p>
+    </form>
+
+    <form method="post" action="{% url 'events:cancel_registration' event.slug %}" class="mt-4 text-center"
+          onsubmit="return confirm('Release your held place and cancel this booking?')">
+      {% csrf_token %}
+      <button type="submit" class="text-xs text-ink-subtle hover:text-rose-600">Cancel this booking instead</button>
+    </form>
+  </div>
+
+  {% include "payments/_push_modal.html" %}
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    // Only the wallet pushes need a number from us: the redirect flow collects
+    // it on Pesepay's page, and a direct transfer starts on the handset.
+    const phoneField = document.querySelector("[data-phone-field]");
+    const NO_PHONE = ["web", "ecocash_direct"];
+    const LABELS = {
+      web: "Continue to Pesepay",
+      ecocash_direct: "Get the payment details",
+    };
+    const submitLabel = document.querySelector("[data-checkout-label]");
+
+    function syncPhone() {
+      const chosen = document.querySelector("input[name=method]:checked");
+      const value = chosen?.value;
+      phoneField?.classList.toggle("hidden", NO_PHONE.includes(value));
+
+      // Say what the button will actually do, not just "Continue".
+      if (submitLabel) {
+        const label =
+          LABELS[value] || `Send the prompt to my phone · {{ event.price_display }}`;
+        submitLabel.textContent = label;
+        // The pop-up restores this after a failed attempt.
+        submitLabel.dataset.idle = label;
+      }
+    }
+    document.querySelectorAll("input[name=method]").forEach((el) =>
+      el.addEventListener("change", syncPhone)
+    );
+    syncPhone();
+  </script>
+
+  {# Owns the submit handler: wallet pushes open in place, the rest post normally. #}
+  {% include "payments/_push_modal_scripts.html" %}
+{% endblock %}

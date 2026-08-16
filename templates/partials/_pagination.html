@@ -1,0 +1,29 @@
+{% if page_obj.paginator.num_pages > 1 %}
+  <nav class="mt-12 flex flex-wrap items-center justify-center gap-1.5" aria-label="Pagination">
+    {% if page_obj.has_previous %}
+      <a href="?{% if querystring %}{{ querystring }}&{% endif %}page=1" class="btn-ghost btn-sm" aria-label="First page">««</a>
+      <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn-secondary btn-sm">← Previous</a>
+    {% else %}
+      <span class="btn-secondary btn-sm pointer-events-none opacity-40">← Previous</span>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+        <span class="btn btn-sm bg-brand-600 text-white shadow-sm" aria-current="page">{{ num }}</span>
+      {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ num }}" class="btn-ghost btn-sm">{{ num }}</a>
+      {% elif num == 1 or num == page_obj.paginator.num_pages %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ num }}" class="btn-ghost btn-sm">{{ num }}</a>
+      {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+        <span class="px-1 text-xs text-ink-subtle">…</span>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+      <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn-secondary btn-sm">Next →</a>
+      <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.paginator.num_pages }}" class="btn-ghost btn-sm" aria-label="Last page">»»</a>
+    {% else %}
+      <span class="btn-secondary btn-sm pointer-events-none opacity-40">Next →</span>
+    {% endif %}
+  </nav>
+{% endif %}

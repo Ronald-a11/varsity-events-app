@@ -1,0 +1,52 @@
+﻿{% extends "base.html" %}
+
+{% block title %}{{ profile_user.display_name }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+    <div class="card overflow-hidden">
+      <div class="h-24 bg-gradient-to-r from-brand-600 to-azure-600"></div>
+      <div class="px-6 pb-6">
+        <div class="-mt-10 flex flex-wrap items-end gap-4">
+          {% if profile_user.avatar %}
+            <img src="{{ profile_user.avatar.url }}" alt="" class="h-20 w-20 rounded-2xl border-4 border-surface object-cover shadow" />
+          {% else %}
+            <span class="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-surface bg-brand-900 text-xl font-bold text-white shadow">{{ profile_user.initials }}</span>
+          {% endif %}
+          <div class="pb-1">
+            <h1 class="text-xl font-extrabold tracking-tight text-ink">{{ profile_user.display_name }}</h1>
+            <p class="text-sm text-ink-subtle">
+              @{{ profile_user.username }}
+              {% if profile_user.course %} · {{ profile_user.course }}{% endif %}
+              {% if profile_user.university %} · {{ profile_user.university }}{% endif %}
+            </p>
+          </div>
+        </div>
+
+        {% if profile_user.bio %}<p class="mt-4 max-w-2xl text-sm text-ink-muted">{{ profile_user.bio }}</p>{% endif %}
+
+        {% if organizations %}
+          <div class="mt-5 border-t border-hairline pt-5">
+            <h2 class="text-xs font-semibold uppercase tracking-wide text-ink-subtle">Societies</h2>
+            <div class="mt-2 flex flex-wrap gap-2">
+              {% for organization in organizations %}
+                <a href="{{ organization.get_absolute_url }}" class="chip bg-surface-3 text-ink-muted hover:bg-surface-3">{{ organization.name }}</a>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if hosted_events %}
+      <section class="mt-10">
+        <h2 class="section-title">Events they're running</h2>
+        <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {% for event in hosted_events %}
+            {% include "partials/_event_card.html" %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

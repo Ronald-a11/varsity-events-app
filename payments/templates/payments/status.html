@@ -1,0 +1,181 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Payment {{ payment.reference }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-lg px-4 py-12 sm:px-6">
+    {% if payment.is_wallet_push and payment.is_open %}
+      {# A prompt is live on the payer's handset — give it the whole screen. #}
+      {% include "payments/_wallet_push.html" %}
+    {% else %}
+    <div class="card overflow-hidden">
+      <!-- Header changes with the outcome -->
+      <div class="px-6 py-8 text-center
+        {% if payment.is_settled %}bg-emerald-500/10
+        {% elif payment.is_open %}bg-brand-500/10
+        {% else %}bg-rose-500/10{% endif %}">
+
+        {% if payment.is_settled %}
+          <span class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600 text-3xl text-white">✓</span>
+          <h1 class="mt-4 text-2xl font-extrabold text-emerald-700 dark:text-emerald-300">Payment received</h1>
+          <p class="mt-1 text-sm text-emerald-600 dark:text-emerald-400">{{ payment.amount_display }} · your ticket is confirmed.</p>
+
+        {% elif payment.needs_verification %}
+          <span class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500 text-3xl text-white">⏱️</span>
+          <h1 class="mt-4 flex items-center justify-center gap-2.5 text-2xl font-extrabold text-amber-700 dark:text-amber-300">
+            <span class="spinner text-amber-500" aria-hidden="true"></span>
+            Checking your transfer
+          </h1>
+          <p class="mt-1 text-sm text-amber-600 dark:text-amber-400">
+            Code <span class="font-mono font-semibold">{{ payment.confirmation_code }}</span> is with the organizer.
+          </p>
+
+        {% elif payment.is_open %}
+          <span class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-600 text-3xl text-white">
+            <span class="animate-pulse">{{ payment.method_icon }}</span>
+          </span>
+          <h1 class="mt-4 flex items-center justify-center gap-2.5 text-2xl font-extrabold text-brand-700 dark:text-brand-300">
+            <span class="spinner text-brand-500" aria-hidden="true"></span>
+            Waiting for payment
+          </h1>
+          <p class="mt-1 text-sm text-brand-600 dark:text-brand-400">{{ payment.amount_display }} via {{ payment.get_method_display }}</p>
+
+        {% elif payment.has_expired or payment.status == 'expired' %}
+          <span class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-500 text-3xl text-white">⏳</span>
+          <h1 class="mt-4 text-2xl font-extrabold text-ink">Payment timed out</h1>
+          <p class="mt-1 text-sm text-ink-muted">We released your held place. You can book again if there's still room.</p>
+
+        {% else %}
+          <span class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-600 text-3xl text-white">✕</span>
+          <h1 class="mt-4 text-2xl font-extrabold text-rose-700 dark:text-rose-300">{{ payment.get_status_display }}</h1>
+          <p class="mt-1 text-sm text-rose-600 dark:text-rose-400">{{ payment.error|default:"The payment didn't go through." }}</p>
+        {% endif %}
+      </div>
+
+      <div class="space-y-5 p-6">
+        <!-- Instructions while we wait -->
+        {% if payment.is_open and payment.instructions %}
+          <div class="rounded-xl border border-brand-500/30 bg-brand-50/60 p-4 text-sm text-brand-700 dark:text-brand-300">
+            {{ payment.instructions }}
+          </div>
+        {% endif %}
+
+        {% if payment.needs_verification %}
+          <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">
+            Nothing more to do. We'll confirm the money against the wallet and your ticket
+            activates automatically — usually within a few minutes.
+          </div>
+        {% elif payment.is_manual and payment.is_open %}
+          <a href="{% url 'payments:transfer' payment.reference %}" class="btn-primary w-full">
+            Send the money / enter my code
+          </a>
+        {% elif payment.is_open and payment.is_simulated %}
+          <a href="{% url 'payments:simulator' payment.reference %}" class="btn-primary w-full">
+            Open the payment simulator
+          </a>
+        {% elif payment.is_open and payment.browser_url %}
+          <a href="{{ payment.browser_url }}" class="btn-primary w-full">Continue to Pesepay</a>
+        {% endif %}
+
+        <!-- Receipt lines -->
+        <dl class="space-y-2.5 border-t border-hairline pt-5 text-sm">
+          <div class="flex justify-between gap-3">
+            <dt class="text-ink-subtle">Event</dt>
+            <dd class="truncate font-medium text-ink">{{ event.title }}</dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-ink-subtle">Amount</dt>
+            <dd class="font-semibold text-ink">{{ payment.amount_display }}</dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-ink-subtle">Method</dt>
+            <dd class="font-medium text-ink">{{ payment.method_icon }} {{ payment.get_method_display }}</dd>
+          </div>
+          {% if payment.phone %}
+            <div class="flex justify-between gap-3">
+              <dt class="text-ink-subtle">Wallet</dt>
+              <dd class="font-medium text-ink">{{ payment.phone }}</dd>
+            </div>
+          {% endif %}
+          <div class="flex justify-between gap-3">
+            <dt class="text-ink-subtle">Our reference</dt>
+            <dd class="font-mono text-xs text-ink-muted">{{ payment.reference }}</dd>
+          </div>
+          {% if payment.paynow_reference %}
+            <div class="flex justify-between gap-3">
+              <dt class="text-ink-subtle">Gateway reference</dt>
+              <dd class="font-mono text-xs text-ink-muted">{{ payment.paynow_reference }}</dd>
+            </div>
+          {% endif %}
+          {% if payment.confirmation_code %}
+            <div class="flex justify-between gap-3">
+              <dt class="text-ink-subtle">EcoCash code</dt>
+              <dd class="font-mono text-xs text-ink-muted">{{ payment.confirmation_code }}</dd>
+            </div>
+          {% endif %}
+          {% if payment.verified_by %}
+            <div class="flex justify-between gap-3">
+              <dt class="text-ink-subtle">Confirmed by</dt>
+              <dd class="font-medium text-ink">{{ payment.verified_by.display_name }}</dd>
+            </div>
+          {% endif %}
+          {% if payment.paid_at %}
+            <div class="flex justify-between gap-3">
+              <dt class="text-ink-subtle">Paid at</dt>
+              <dd class="font-medium text-ink">{{ payment.paid_at|date:"j M Y, H:i" }}</dd>
+            </div>
+          {% endif %}
+        </dl>
+
+        <!-- Onward -->
+        <div class="flex gap-2 border-t border-hairline pt-5">
+          {% if payment.is_settled %}
+            <a href="{{ payment.registration.get_absolute_url }}" class="btn-primary flex-1">View my ticket</a>
+          {% elif not payment.is_open %}
+            <a href="{{ event.get_absolute_url }}" class="btn-primary flex-1">Back to the event</a>
+          {% else %}
+            <a href="{{ event.get_absolute_url }}" class="btn-secondary flex-1">Event page</a>
+          {% endif %}
+          <a href="{% url 'accounts:tickets' %}" class="btn-secondary flex-1">My tickets</a>
+        </div>
+
+        {% if payment.is_simulated %}
+          <p class="text-center text-xs text-amber-600 dark:text-amber-400">🧪 Simulated payment — no real money moved.</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {% if payment.is_wallet_push and payment.is_open %}
+    {% include "payments/_wallet_push_scripts.html" %}
+  {% elif payment.is_open %}
+    <script>
+      // Poll quietly until the gateway settles, then jump straight to the ticket.
+      const endpoint = "{% url 'payments:status_json' payment.reference %}";
+      let attempts = 0;
+
+      const tick = setInterval(async () => {
+        attempts += 1;
+        if (attempts > 60) return clearInterval(tick); // ~5 minutes, then stop
+
+        try {
+          const res = await fetch(endpoint, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+          if (!res.ok) return;
+          const state = await res.json();
+          if (state.settled && state.ticket_url) {
+            clearInterval(tick);
+            window.location = state.ticket_url;
+          } else if (!state.open) {
+            clearInterval(tick);
+            window.location.reload();
+          }
+        } catch (e) {
+          /* transient network blip — keep waiting */
+        }
+      }, 5000);
+    </script>
+  {% endif %}
+{% endblock %}

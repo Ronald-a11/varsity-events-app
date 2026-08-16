@@ -1,0 +1,89 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Admin · Societies · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <a href="{% url 'core:staff_dashboard' %}" class="text-sm text-ink-subtle hover:text-brand-600">← Back to event curation</a>
+
+    <div class="mt-2 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-ink">Societies</h1>
+        <p class="mt-1 text-sm text-ink-subtle">{{ total_count }} registered across every university. Verify the real ones; suspend the rest.</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="?" class="chip {% if not selected.verified %}bg-brand-600 text-white{% else %}bg-surface-3 text-ink-muted hover:bg-surface-3{% endif %}">All</a>
+        <a href="?verified=no" class="chip {% if selected.verified == 'no' %}bg-brand-600 text-white{% else %}bg-surface-3 text-ink-muted hover:bg-surface-3{% endif %}">Awaiting verification</a>
+        <a href="?verified=yes" class="chip {% if selected.verified == 'yes' %}bg-brand-600 text-white{% else %}bg-surface-3 text-ink-muted hover:bg-surface-3{% endif %}">Verified</a>
+      </div>
+    </div>
+
+    <div class="mt-6 overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-hairline text-sm">
+          <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-ink-subtle">
+            <tr>
+              <th class="px-4 py-3 font-semibold">Society</th>
+              <th class="px-4 py-3 font-semibold">University</th>
+              <th class="px-4 py-3 font-semibold">Activity</th>
+              <th class="px-4 py-3 font-semibold">State</th>
+              <th class="px-4 py-3 text-right font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-hairline">
+            {% for society in societies %}
+              <tr class="hover:bg-surface-2 {% if not society.is_active %}opacity-60{% endif %}">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2.5">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-900 text-[10px] font-bold text-white">{{ society.initials }}</span>
+                    <div class="min-w-0">
+                      <a href="{{ society.get_absolute_url }}" class="truncate font-semibold text-ink hover:text-brand-600">{{ society.name }}</a>
+                      <p class="truncate text-xs text-ink-subtle">{{ society.get_kind_display }}{% if society.created_by %} · by {{ society.created_by.display_name }}{% endif %}</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-ink-muted">{{ society.university|default:"—" }}</td>
+                <td class="whitespace-nowrap px-4 py-3 text-ink-muted">
+                  {{ society.event_total }} event{{ society.event_total|pluralize }}
+                  <p class="text-xs text-ink-subtle">{{ society.member_total }} member{{ society.member_total|pluralize }}</p>
+                </td>
+                <td class="px-4 py-3">
+                  {% if society.is_verified %}
+                    <span class="chip bg-sky-500/10 text-sky-600 dark:text-sky-400">Verified</span>
+                  {% else %}
+                    <span class="chip bg-amber-500/10 text-amber-600 dark:text-amber-400">Unverified</span>
+                  {% endif %}
+                  {% if not society.is_active %}<span class="chip bg-rose-500/10 text-rose-600 dark:text-rose-400">Suspended</span>{% endif %}
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex flex-wrap justify-end gap-1">
+                    {% if society.is_verified %}
+                      <form method="post" action="{% url 'core:staff_society_action' society.slug 'unverify' %}">{% csrf_token %}
+                        <button class="btn-ghost btn-sm">Remove badge</button></form>
+                    {% else %}
+                      <form method="post" action="{% url 'core:staff_society_action' society.slug 'verify' %}">{% csrf_token %}
+                        <button class="btn-secondary btn-sm">Verify</button></form>
+                    {% endif %}
+
+                    {% if society.is_active %}
+                      <form method="post" action="{% url 'core:staff_society_action' society.slug 'suspend' %}"
+                            onsubmit="return confirm('Hide {{ society.name|escapejs }} and its events from students?')">
+                        {% csrf_token %}<button class="btn-ghost btn-sm text-rose-600">Suspend</button></form>
+                    {% else %}
+                      <form method="post" action="{% url 'core:staff_society_action' society.slug 'restore' %}">{% csrf_token %}
+                        <button class="btn-ghost btn-sm text-emerald-600">Restore</button></form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="px-4 py-12 text-center text-sm text-ink-subtle">No societies here.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% include "partials/_pagination.html" %}
+  </div>
+{% endblock %}

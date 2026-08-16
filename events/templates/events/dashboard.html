@@ -1,0 +1,153 @@
+﻿{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Organizer dashboard · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  {% include "partials/_page_header.html" with crumbs=crumbs title="Organizer dashboard" subtitle="Everything you're running, in one view." actions=actions %}
+
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <!-- Stats -->
+    <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div class="stat-card">
+        <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Events</dt>
+        <dd class="mt-1.5 text-3xl font-extrabold text-ink">{{ stats.total_events }}</dd>
+        <p class="mt-1 text-xs text-ink-subtle">{{ stats.upcoming }} still to come</p>
+      </div>
+      <div class="stat-card">
+        <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Collected</dt>
+        <dd class="mt-1.5 text-3xl font-extrabold text-emerald-600">USD {{ stats.revenue|floatformat:2 }}</dd>
+        <p class="mt-1 text-xs text-ink-subtle">
+          via Pesepay{% if stats.awaiting_payment %} · {{ stats.awaiting_payment }} awaiting payment{% endif %}
+        </p>
+      </div>
+      <div class="stat-card">
+        <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Registrations</dt>
+        <dd class="mt-1.5 text-3xl font-extrabold text-ink">{{ stats.registrations|intcomma }}</dd>
+        <p class="mt-1 text-xs text-ink-subtle">confirmed places</p>
+      </div>
+      <div class="stat-card">
+        <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Checked in</dt>
+        <dd class="mt-1.5 text-3xl font-extrabold text-ink">{{ stats.checked_in|intcomma }}</dd>
+        <p class="mt-1 text-xs text-ink-subtle">scanned at the door</p>
+      </div>
+      <div class="stat-card">
+        <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Turnout rate</dt>
+        <dd class="mt-1.5 text-3xl font-extrabold text-ink">{{ stats.attendance_rate }}%</dd>
+        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3">
+          <div class="h-full rounded-full bg-brand-500" style="width: {{ stats.attendance_rate }}%"></div>
+        </div>
+      </div>
+    </dl>
+
+    <!-- Societies -->
+    {% if organizations %}
+      <section class="mt-10">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-subtle">Your societies</h2>
+        <div class="mt-3 flex flex-wrap gap-2">
+          {% for organization in organizations %}
+            <a href="{{ organization.get_absolute_url }}" class="flex items-center gap-2 rounded-xl border border-hairline bg-surface px-3 py-2 text-sm font-medium text-ink-muted hover:border-brand-300 hover:text-brand-600 dark:text-brand-400">
+              <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-900 text-[10px] font-bold text-white">{{ organization.initials }}</span>
+              {{ organization.name }}
+            </a>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Drafts -->
+    {% if drafts %}
+      <section class="mt-10">
+        <h2 class="section-title">Drafts</h2>
+        <div class="mt-4 space-y-3">
+          {% for event in drafts %}
+            <div class="card flex flex-wrap items-center gap-4 p-4">
+              <span class="chip bg-amber-500/10 text-amber-600 dark:text-amber-400">Draft</span>
+              <div class="min-w-0 flex-1">
+                <h3 class="truncate font-semibold text-ink">{{ event.title }}</h3>
+                <p class="text-xs text-ink-subtle">{{ event.starts_at|date:"D, j M Y · H:i" }} · {{ event.organization.name }}</p>
+              </div>
+              <a href="{% url 'events:edit' event.slug %}" class="btn-primary btn-sm">Finish &amp; publish</a>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Upcoming -->
+    <section class="mt-10">
+      <h2 class="section-title">Upcoming events</h2>
+
+      {% if upcoming_events %}
+        <div class="mt-4 overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card">
+          <table class="min-w-full divide-y divide-hairline text-sm">
+            <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-ink-subtle">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Event</th>
+                <th class="hidden px-4 py-3 font-semibold sm:table-cell">When</th>
+                <th class="px-4 py-3 font-semibold">Sign-ups</th>
+                <th class="px-4 py-3 text-right font-semibold">Manage</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-hairline">
+              {% for event in upcoming_events %}
+                <tr class="hover:bg-surface-2">
+                  <td class="px-4 py-3">
+                    <a href="{{ event.get_absolute_url }}" class="font-semibold text-ink hover:text-brand-600">{{ event.title }}</a>
+                    <p class="text-xs text-ink-subtle">{{ event.organization.name }}</p>
+                    {% if event.status != 'published' %}
+                      <span class="chip mt-1 {% if event.status == 'draft' %}bg-amber-500/10 text-amber-600 dark:text-amber-400{% else %}bg-rose-500/10 text-rose-600 dark:text-rose-400{% endif %}">{{ event.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="hidden whitespace-nowrap px-4 py-3 text-ink-muted sm:table-cell">
+                    {{ event.starts_at|date:"j M, H:i" }}
+                    <p class="text-xs text-ink-subtle">{{ event.starts_at|naturaltime }}</p>
+                  </td>
+                  <td class="px-4 py-3">
+                    <p class="font-semibold text-ink">
+                      {{ event.attendee_count }}{% if event.capacity %}<span class="font-normal text-ink-subtle">/{{ event.capacity }}</span>{% endif %}
+                    </p>
+                    {% if event.waitlist_count %}<p class="text-xs text-amber-600">{{ event.waitlist_count }} waiting</p>{% endif %}
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex justify-end gap-1.5">
+                      <a href="{% url 'events:manage_attendees' event.slug %}" class="btn-ghost btn-sm">Attendees</a>
+                      <a href="{% url 'events:check_in' event.slug %}" class="btn-secondary btn-sm">Check in</a>
+                      <a href="{% url 'events:edit' event.slug %}" class="btn-ghost btn-sm">Edit</a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card mt-4 px-6 py-14 text-center">
+          <p class="text-4xl">📣</p>
+          <h3 class="mt-3 text-lg font-semibold text-ink">Nothing on the calendar</h3>
+          <p class="mt-1 text-sm text-ink-subtle">Publish your first event and it'll show up here.</p>
+          <a href="{% url 'events:create' %}" class="btn-primary mt-5">Create an event</a>
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- Past -->
+    {% if past_events %}
+      <section class="mt-10">
+        <h2 class="section-title">Recently finished</h2>
+        <div class="mt-4 space-y-3">
+          {% for event in past_events %}
+            <div class="card flex flex-wrap items-center gap-4 p-4">
+              <div class="min-w-0 flex-1">
+                <h3 class="truncate font-semibold text-ink">{{ event.title }}</h3>
+                <p class="text-xs text-ink-subtle">{{ event.starts_at|date:"j M Y" }} · {{ event.attendee_count }} registered · {{ event.checked_in_count }} turned up</p>
+              </div>
+              <a href="{% url 'events:export_attendees' event.slug %}" class="btn-secondary btn-sm">Export CSV</a>
+              <a href="{% url 'events:manage_attendees' event.slug %}" class="btn-ghost btn-sm">Details</a>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

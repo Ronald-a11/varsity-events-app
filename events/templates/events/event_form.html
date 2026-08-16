@@ -1,0 +1,215 @@
+﻿{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit {{ event.title }}{% else %}Create an event{% endif %} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div class="mb-8">
+      <a href="{% url 'events:dashboard' %}" class="text-sm text-ink-subtle hover:text-brand-600">← Back to dashboard</a>
+      <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+        {% if is_edit %}Edit event{% else %}Create an event{% endif %}
+      </h1>
+      <p class="mt-1 text-sm text-ink-subtle">
+        Fill in what you know now — you can save a draft and publish it when you're ready.
+      </p>
+    </div>
+
+    {% if form.non_field_errors %}
+      <div class="mb-6 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-800">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="space-y-6" novalidate>
+      {% csrf_token %}
+
+      <!-- The basics -->
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">The basics</h2>
+        <div class="mt-5 space-y-5">
+          {% include "partials/_field.html" with field=form.title %}
+          {% include "partials/_field.html" with field=form.summary %}
+          {% include "partials/_field.html" with field=form.description %}
+          <div class="grid gap-5 sm:grid-cols-2">
+            {% include "partials/_field.html" with field=form.organization %}
+            {% include "partials/_field.html" with field=form.category %}
+          </div>
+          {% include "partials/_field.html" with field=form.tags %}
+          {% include "partials/_field.html" with field=form.banner %}
+        </div>
+      </section>
+
+      <!-- When -->
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">When</h2>
+        <div class="mt-5 grid gap-5 sm:grid-cols-2">
+          {% include "partials/_field.html" with field=form.starts_at %}
+          {% include "partials/_field.html" with field=form.ends_at %}
+          {% include "partials/_field.html" with field=form.registration_deadline wrapper_class="sm:col-span-2" %}
+        </div>
+      </section>
+
+      <!-- Where -->
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">Where</h2>
+        <div class="mt-5 space-y-5">
+          {% include "partials/_field.html" with field=form.is_online %}
+          {% include "partials/_field.html" with field=form.online_url %}
+          <div class="grid gap-5 sm:grid-cols-2">
+            {% include "partials/_field.html" with field=form.venue %}
+            {% include "partials/_field.html" with field=form.location_note %}
+          </div>
+        </div>
+      </section>
+
+      <!-- Tickets -->
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">Tickets &amp; capacity</h2>
+        <div class="mt-5 space-y-5">
+          {% include "partials/_field.html" with field=form.capacity %}
+          <div class="space-y-3">
+            {% include "partials/_field.html" with field=form.allow_waitlist %}
+            {% include "partials/_field.html" with field=form.requires_approval %}
+            {% include "partials/_field.html" with field=form.is_free %}
+          </div>
+          <div class="grid gap-5 sm:grid-cols-2">
+            {% include "partials/_field.html" with field=form.price %}
+            {% include "partials/_field.html" with field=form.currency %}
+          </div>
+          {% include "partials/_field.html" with field=form.visibility %}
+        </div>
+      </section>
+
+      <!-- Where students actually buy -->
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">Where to buy tickets</h2>
+        <p class="mt-1 text-sm text-ink-subtle">
+          List every place a student can get a ticket — the SRC offices, a partner outlet, EcoCash, the door.
+          Untick <em>Available</em> the moment an outlet runs out and the event page will show it as sold out.
+        </p>
+
+        <div class="mt-5 grid gap-5 sm:grid-cols-2">
+          {% include "partials/_field.html" with field=form.ticket_status %}
+          {% include "partials/_field.html" with field=form.ticket_notes %}
+        </div>
+
+        {{ outlets.management_form }}
+        {% if outlets.non_form_errors %}
+          <div class="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-800">
+            {% for error in outlets.non_form_errors %}<p>{{ error }}</p>{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="mt-5 space-y-4" data-outlets>
+          {% for outlet_form in outlets %}
+            <fieldset class="rounded-2xl border border-hairline p-4">
+              {{ outlet_form.id }}
+              <div class="grid gap-4 sm:grid-cols-2">
+                {% include "partials/_field.html" with field=outlet_form.name %}
+                {% include "partials/_field.html" with field=outlet_form.kind %}
+                {% include "partials/_field.html" with field=outlet_form.detail wrapper_class="sm:col-span-2" %}
+                {% include "partials/_field.html" with field=outlet_form.url %}
+                {% include "partials/_field.html" with field=outlet_form.phone %}
+                {% include "partials/_field.html" with field=outlet_form.price_note wrapper_class="sm:col-span-2" %}
+              </div>
+              <div class="mt-4 flex flex-wrap items-center gap-6 border-t border-hairline pt-4">
+                {% include "partials/_field.html" with field=outlet_form.is_available %}
+                {% if outlet_form.instance.pk %}
+                  {% include "partials/_field.html" with field=outlet_form.DELETE %}
+                {% endif %}
+              </div>
+            </fieldset>
+          {% endfor %}
+        </div>
+
+        <button type="button" data-add-outlet class="btn-secondary btn-sm mt-4">+ Add another outlet</button>
+      </section>
+
+      <!-- Actions -->
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="submit" name="action" value="publish" class="btn-primary">
+          {% if is_edit and event.status == 'published' %}Save &amp; keep live{% else %}Publish now{% endif %}
+        </button>
+
+        {% if is_edit and event.status == 'published' %}
+          <button type="submit" name="action" value="unpublish" class="btn-secondary">Unpublish</button>
+        {% else %}
+          <button type="submit" name="action" value="draft" class="btn-secondary">Save as draft</button>
+        {% endif %}
+
+        {% if is_edit %}
+          <a href="{{ event.get_absolute_url }}" class="btn-ghost">View page</a>
+          <span class="ml-auto flex gap-2">
+            <button type="submit" form="cancel-event" class="btn-ghost text-amber-600">Cancel event</button>
+            <button type="submit" form="delete-event" class="btn-ghost text-rose-600">Delete</button>
+          </span>
+        {% endif %}
+      </div>
+    </form>
+
+    {% if is_edit %}
+      <form id="cancel-event" method="post" action="{% url 'events:cancel' event.slug %}" class="hidden"
+            onsubmit="return confirm('Mark this event as cancelled? Attendees will see it on the page.')">
+        {% csrf_token %}
+      </form>
+      <form id="delete-event" method="post" action="{% url 'events:delete' event.slug %}" class="hidden"
+            onsubmit="return confirm('Permanently delete this event and all its registrations? This cannot be undone.')">
+        {% csrf_token %}
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    // Show only the fields that apply to the chosen format.
+    const onlineToggle = document.querySelector("#id_is_online");
+    const freeToggle = document.querySelector("#id_is_free");
+
+    const wrapperOf = (id) => document.querySelector(id)?.closest("div");
+
+    function syncFormat() {
+      const online = onlineToggle?.checked;
+      wrapperOf("#id_online_url")?.classList.toggle("hidden", !online);
+      wrapperOf("#id_venue")?.classList.toggle("hidden", online);
+      wrapperOf("#id_location_note")?.classList.toggle("hidden", online);
+    }
+
+    function syncPrice() {
+      const free = freeToggle?.checked;
+      wrapperOf("#id_price")?.classList.toggle("hidden", free);
+      wrapperOf("#id_currency")?.classList.toggle("hidden", free);
+    }
+
+    onlineToggle?.addEventListener("change", syncFormat);
+    freeToggle?.addEventListener("change", syncPrice);
+    syncFormat();
+    syncPrice();
+
+    // Clone the last outlet row and renumber it, the standard Django formset trick.
+    document.querySelector("[data-add-outlet]")?.addEventListener("click", () => {
+      const container = document.querySelector("[data-outlets]");
+      const total = document.querySelector("#id_outlets-TOTAL_FORMS");
+      if (!container || !total) return;
+
+      const index = parseInt(total.value, 10);
+      const template = container.lastElementChild.cloneNode(true);
+
+      template.querySelectorAll("input, select, textarea, label").forEach((el) => {
+        ["name", "id", "for"].forEach((attr) => {
+          const value = el.getAttribute(attr);
+          if (value) el.setAttribute(attr, value.replace(/outlets-\d+-/, `outlets-${index}-`));
+        });
+        if (el.tagName === "INPUT") {
+          if (el.type === "checkbox") el.checked = el.name.endsWith("is_available");
+          else if (el.type !== "hidden") el.value = "";
+          else if (el.name.endsWith("-id")) el.value = "";
+        }
+      });
+      template.querySelectorAll(".field-error").forEach((el) => el.remove());
+
+      container.appendChild(template);
+      total.value = index + 1;
+    });
+  </script>
+{% endblock %}

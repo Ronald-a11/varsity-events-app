@@ -1,0 +1,118 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Societies &amp; clubs · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  {% include "partials/_page_header.html" with crumbs=crumbs title="Societies &amp; clubs" subtitle=page_subtitle actions=actions %}
+
+  <!-- Tabs -->
+  <div class="sticky top-[57px] z-30 border-b border-hairline bg-surface/95 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-4">
+        <div class="min-w-0 flex-1">
+          {% include "partials/_tabs.html" with tabs=tabs %}
+        </div>
+        <button type="button" onclick="document.getElementById('filters').classList.toggle('hidden')"
+                class="btn-secondary btn-sm shrink-0">Find a society</button>
+      </div>
+
+      <form method="get" id="filters" class="{% if not selected.q and not selected.university %}hidden {% endif %}grid gap-3 border-t border-hairline py-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label class="label" for="filter-q">Name</label>
+          <input id="filter-q" type="search" name="q" value="{{ selected.q }}" placeholder="Search societies…"
+                 class="w-full rounded-xl border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25" />
+        </div>
+
+        <div>
+          <label class="label" for="filter-university">University</label>
+          <select id="filter-university" name="university" class="w-full rounded-xl border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none">
+            <option value="">Every university</option>
+            {% for uni in universities %}
+              <option value="{{ uni.slug }}" {% if selected.university == uni.slug %}selected{% endif %}>{{ uni.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="label" for="filter-kind">Type</label>
+          <select id="filter-kind" name="kind" class="w-full rounded-xl border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none">
+            <option value="">Any type</option>
+            {% for value, text in kinds %}
+              <option value="{{ value }}" {% if selected.kind == value %}selected{% endif %}>{{ text }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="flex items-end gap-2">
+          <select name="sort" class="flex-1 rounded-xl border border-hairline bg-surface px-3 py-2 text-sm text-ink focus:border-brand-500 focus:outline-none">
+            <option value="name" {% if selected.sort == 'name' %}selected{% endif %}>By university</option>
+            <option value="active" {% if selected.sort == 'active' %}selected{% endif %}>Most active</option>
+            <option value="popular" {% if selected.sort == 'popular' %}selected{% endif %}>Most followed</option>
+          </select>
+          <button type="submit" class="btn-primary">Apply</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    {% if organizations %}
+      <div class="mb-6 flex flex-wrap items-baseline justify-between gap-3">
+        <p class="text-sm text-ink-subtle">
+          Showing <strong class="text-ink">{{ range_start }}–{{ range_end }}</strong> of
+          <strong class="text-ink">{{ total_count }}</strong>
+          {% if verified_count %} · <span class="text-sky-500">{{ verified_count }} verified</span>{% endif %}
+        </p>
+        {% if selected.sort == 'name' %}
+          <p class="text-2xs uppercase tracking-widest text-ink-subtle">Grouped by university · verified first</p>
+        {% endif %}
+      </div>
+
+      {% include "partials/_masthead.html" with edition="Society Register" folio=page_folio %}
+
+      {% if grouped %}
+        <!-- Directory: one ruled section per university -->
+        {% for group in grouped %}
+          <section class="mb-8">
+            <div class="mt-6 flex flex-wrap items-center gap-3 border-b border-ink pb-1.5">
+              <h2 class="font-display text-sm font-extrabold uppercase tracking-[0.15em] text-ink">{{ group.label }}</h2>
+              {% if group.university and group.university.city %}
+                <span class="text-2xs uppercase tracking-wider text-ink-subtle">{{ group.university.city }}</span>
+              {% endif %}
+              <span class="h-px flex-1"></span>
+              <span class="text-2xs font-bold text-ink-subtle">{{ group.societies|length }}</span>
+            </div>
+
+            <div class="divide-y divide-hairline">
+              {% for organization in group.societies %}
+                {% include "partials/_society_row.html" with counter=organization.row_number %}
+              {% endfor %}
+            </div>
+          </section>
+        {% endfor %}
+      {% else %}
+        <!-- Ranked orders are a straight league table, numbered 1..n -->
+        <div class="divide-y divide-hairline">
+          {% for organization in organizations %}
+            {% include "partials/_society_row.html" with counter=organization.row_number %}
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% include "partials/_pagination.html" %}
+
+    {% else %}
+      <div class="card px-6 py-16 text-center">
+        <p class="text-4xl">🏛️</p>
+        <h3 class="mt-4 text-lg font-semibold text-ink">No societies found</h3>
+        <p class="mx-auto mt-1 max-w-sm text-sm text-ink-subtle">
+          Try a different search or university — or register yours and be the first.
+        </p>
+        <div class="mt-6 flex justify-center gap-2">
+          <a href="{% url 'organizations:list' %}" class="btn-secondary">Clear filters</a>
+          <a href="{% url 'organizations:create' %}" class="btn-primary">Register a society</a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

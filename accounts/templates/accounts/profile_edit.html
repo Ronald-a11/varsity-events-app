@@ -1,0 +1,59 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Edit profile · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+    <a href="{% url 'accounts:profile' %}" class="text-sm text-ink-subtle hover:text-brand-600">← Back to profile</a>
+    <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink">Edit your profile</h1>
+    <p class="mt-1 text-sm text-ink-subtle">Organizers see your name and course when you register for their events.</p>
+
+    <form method="post" enctype="multipart/form-data" class="mt-8 space-y-6" novalidate>
+      {% csrf_token %}
+
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">About you</h2>
+        <div class="mt-5 space-y-5">
+          <div class="grid gap-5 sm:grid-cols-2">
+            {% include "partials/_field.html" with field=form.first_name %}
+            {% include "partials/_field.html" with field=form.last_name %}
+          </div>
+          {% include "partials/_field.html" with field=form.email %}
+          {% include "partials/_field.html" with field=form.avatar %}
+          {% include "partials/_field.html" with field=form.bio %}
+        </div>
+      </section>
+
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">Studies</h2>
+        <div class="mt-5 grid gap-5 sm:grid-cols-2">
+          {% include "partials/_field.html" with field=form.university %}
+          {% include "partials/_field.html" with field=form.student_id %}
+          {% include "partials/_field.html" with field=form.course %}
+          {% include "partials/_field.html" with field=form.year_of_study %}
+          {% include "partials/_field.html" with field=form.phone wrapper_class="sm:col-span-2" %}
+        </div>
+      </section>
+
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">{{ form.interests.label }}</h2>
+        <p class="mt-1 text-xs text-ink-subtle">{{ form.interests.help_text }}</p>
+        <div class="mt-4 grid gap-2 sm:grid-cols-2">
+          {% for checkbox in form.interests %}
+            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-hairline p-3 text-sm text-ink-muted transition hover:border-brand-300 hover:bg-brand-50/50">
+              {{ checkbox.tag }}
+              <span>{{ checkbox.choice_label }}</span>
+            </label>
+          {% empty %}
+            <p class="text-sm text-ink-subtle">No categories set up yet.</p>
+          {% endfor %}
+        </div>
+      </section>
+
+      <div class="flex gap-3">
+        <button type="submit" class="btn-primary">Save changes</button>
+        <a href="{% url 'accounts:profile' %}" class="btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

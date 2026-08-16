@@ -1,0 +1,17 @@
+# Normalise line endings. Railway builds on Linux, and a CRLF in the Procfile
+# or a shell script becomes part of the command it tries to run.
+* text=auto eol=lf
+
+Procfile text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+
+# Keep binaries byte-for-byte
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

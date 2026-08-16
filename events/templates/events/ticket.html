@@ -1,0 +1,113 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Ticket {{ registration.ticket_code }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  {% with event=registration.event %}
+    <div class="mx-auto max-w-md px-4 py-10 sm:px-6">
+      <a href="{% url 'accounts:tickets' %}" class="text-sm text-ink-subtle hover:text-brand-600">← All my tickets</a>
+
+      <div class="mt-3 overflow-hidden rounded-3xl bg-surface shadow-lift">
+        <!-- Header -->
+        <div class="relative bg-gradient-to-br from-brand-600 to-azure-700 px-6 py-8 text-white">
+          <p class="text-xs font-semibold uppercase tracking-widest text-brand-200">
+            {% if registration.status == 'confirmed' %}Admit one
+            {% elif registration.status == 'waitlisted' %}Waitlist pass
+            {% elif registration.status == 'pending' %}Pending approval
+            {% else %}Cancelled{% endif %}
+          </p>
+          <h1 class="mt-2 text-2xl font-extrabold leading-tight">{{ event.title }}</h1>
+          <p class="mt-2 text-sm text-brand-100">{{ event.organization.name }}</p>
+
+          {% if event.is_cancelled %}
+            <span class="chip mt-3 bg-rose-600 text-white">Event cancelled</span>
+          {% elif registration.is_checked_in %}
+            <span class="chip mt-3 bg-white/20 text-white ring-1 ring-inset ring-white/30">✓ Checked in at {{ registration.checked_in_at|date:"H:i" }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Perforation -->
+        <div class="relative h-6 bg-surface">
+          <div class="absolute -left-3 top-0 h-6 w-6 rounded-full bg-surface-2"></div>
+          <div class="absolute -right-3 top-0 h-6 w-6 rounded-full bg-surface-2"></div>
+          <div class="absolute inset-x-6 top-3 border-t-2 border-dashed border-hairline"></div>
+        </div>
+
+        <!-- Details -->
+        <div class="space-y-4 px-6 pb-6">
+          <dl class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Date</dt>
+              <dd class="mt-0.5 font-semibold text-ink">{{ event.starts_at|date:"D, j M Y" }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Time</dt>
+              <dd class="mt-0.5 font-semibold text-ink">{{ event.starts_at|date:"H:i" }} – {{ event.ends_at|date:"H:i" }}</dd>
+            </div>
+            <div class="col-span-2">
+              <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Where</dt>
+              <dd class="mt-0.5 font-semibold text-ink">{{ event.location_display }}</dd>
+              {% if event.is_online and event.online_url %}
+                <a href="{{ event.online_url }}" target="_blank" rel="noopener" class="link text-sm">Join link</a>
+              {% endif %}
+            </div>
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Attendee</dt>
+              <dd class="mt-0.5 font-semibold text-ink">{{ registration.user.display_name }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Price</dt>
+              <dd class="mt-0.5 font-semibold text-ink">{{ event.price_display }}</dd>
+            </div>
+          </dl>
+
+          <!-- QR -->
+          <div class="rounded-2xl border border-hairline bg-surface-2 p-5 text-center">
+            <img
+              src="{% url 'events:ticket_qr' registration.ticket_code %}"
+              alt="QR code for ticket {{ registration.ticket_code }}"
+              class="mx-auto h-44 w-44 rounded-xl bg-surface p-2"
+            />
+            <p class="mt-3 font-mono text-lg font-bold tracking-widest text-ink">{{ registration.ticket_code }}</p>
+            <p class="mt-1 text-xs text-ink-subtle">Show this at the door</p>
+          </div>
+
+          {% if registration.needs_payment %}
+            <div class="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4 text-center">
+              <p class="text-sm font-semibold text-orange-700 dark:text-orange-300">This ticket isn't valid yet</p>
+              <p class="mt-1 text-xs text-orange-800">
+                Your place is held while you pay. Settle {{ event.price_display }} through Pesepay to activate it.
+              </p>
+              <a href="{% url 'payments:checkout' event.slug %}" class="btn-primary btn-sm mt-3">
+                Pay {{ event.price_display }}
+              </a>
+            </div>
+          {% elif registration.settled_payment %}
+            <div class="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs">
+              <span class="font-medium text-emerald-700 dark:text-emerald-300">
+                {{ registration.settled_payment.method_icon }} Paid · {{ registration.settled_payment.amount_display }}
+              </span>
+              <a href="{{ registration.settled_payment.get_absolute_url }}" class="font-medium text-emerald-600 dark:text-emerald-400 hover:underline">Receipt</a>
+            </div>
+          {% endif %}
+
+          {% if registration.status == 'waitlisted' %}
+            <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-center text-xs text-amber-800">
+              You're on the waitlist. We'll confirm your place automatically if someone drops out.
+            </div>
+          {% elif registration.status == 'pending' %}
+            <div class="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-center text-xs text-sky-800">
+              The organizer is reviewing your request. This ticket becomes valid once they approve it.
+            </div>
+          {% endif %}
+
+          <div class="flex gap-2">
+            <a href="{{ event.get_absolute_url }}" class="btn-secondary flex-1 btn-sm">Event page</a>
+            <a href="{% url 'events:ics' event.slug %}" class="btn-secondary flex-1 btn-sm">Add to calendar</a>
+            <button type="button" onclick="window.print()" class="btn-secondary btn-sm">Print</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endwith %}
+{% endblock %}

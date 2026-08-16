@@ -1,0 +1,72 @@
+{# One line on the wire: thumbnail, kicker, headline, dateline. Dense on purpose. #}
+<article class="group flex gap-4 py-4 reveal">
+  <a href="{{ event.get_absolute_url }}" class="relative block h-20 w-28 shrink-0 overflow-hidden rounded-xl bg-surface-3 sm:h-24 sm:w-36">
+    {% if event.banner %}
+      <img src="{{ event.banner.url }}" alt=""
+           class="img-fade h-full w-full object-cover transition duration-500 ease-spring group-hover:scale-105"
+           loading="lazy" decoding="async" />
+    {% else %}
+      <div class="relative h-full w-full bg-gradient-to-br from-brand-500 to-azure-600">
+        <span class="absolute inset-0 flex items-center justify-center text-2xl opacity-90">{{ event.category.icon|default:"🎓" }}</span>
+      </div>
+    {% endif %}
+
+    {% with a=event.availability %}
+      {% if a.state == 'sold_out' %}
+        <span class="absolute bottom-1 left-1 chip bg-rose-600 px-1.5 py-0.5 text-2xs text-white">Sold out</span>
+      {% elif a.state == 'waitlist' %}
+        <span class="absolute bottom-1 left-1 chip bg-amber-500 px-1.5 py-0.5 text-2xs text-white">Waitlist</span>
+      {% endif %}
+    {% endwith %}
+  </a>
+
+  <div class="min-w-0 flex-1">
+    <!-- Kicker -->
+    <div class="flex flex-wrap items-center gap-1.5 text-2xs font-bold uppercase tracking-widest">
+      {% if event.category %}
+        <span class="text-{{ event.category.color }}-600 dark:text-{{ event.category.color }}-400">{{ event.category.name }}</span>
+      {% endif %}
+      {% if event.organization.university %}
+        <span class="text-ink-subtle opacity-40">·</span>
+        <span class="text-ink-subtle">{{ event.organization.university }}</span>
+      {% endif %}
+      {% if event.is_live %}
+        <span class="chip bg-emerald-500/10 px-1.5 py-0 text-2xs text-emerald-600 dark:text-emerald-400">Live</span>
+      {% endif %}
+    </div>
+
+    <h3 class="mt-1 font-display text-base font-bold leading-snug tracking-tight text-ink sm:text-lg">
+      <a href="{{ event.get_absolute_url }}" class="transition hover:text-brand-500">{{ event.title }}</a>
+    </h3>
+
+    {% if event.summary %}
+      <p class="mt-1 line-clamp-1 text-sm text-ink-subtle sm:line-clamp-2">{{ event.summary }}</p>
+    {% endif %}
+
+    <!-- Dateline -->
+    <div class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-subtle">
+      <span class="font-medium text-ink-muted">{{ event.organization.name }}</span>
+      <span class="opacity-40">·</span>
+      <time>{{ event.starts_at|date:"D j M, H:i" }}</time>
+      <span class="opacity-40">·</span>
+      <span class="truncate">{{ event.location_display }}</span>
+      <span class="opacity-40">·</span>
+      <span class="{% if event.is_free %}font-medium text-emerald-600 dark:text-emerald-400{% endif %}">{{ event.price_display }}</span>
+      {% if event.capacity and not event.is_full %}
+        <span class="opacity-40">·</span>
+        <span>{{ event.seats_left }} left</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if user.is_authenticated %}
+    <form action="{% url 'events:toggle_bookmark' event.slug %}" method="post" class="shrink-0 self-start"
+          data-bookmark-form data-no-progress>
+      {% csrf_token %}
+      <button type="submit" class="rounded-lg p-1.5 text-ink-subtle transition hover:bg-surface-3 hover:text-brand-500" title="Save event">
+        <svg data-saved-off class="h-4 w-4 {% if event.id in bookmarked_ids %}hidden{% endif %}" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.6 3.5H6.4A1.9 1.9 0 0 0 4.5 5.4v15.1l7.5-4.1 7.5 4.1V5.4a1.9 1.9 0 0 0-1.9-1.9Z" /></svg>
+        <svg data-saved-on class="h-4 w-4 text-brand-500 {% if event.id not in bookmarked_ids %}hidden{% endif %}" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 3.5H6.4A1.9 1.9 0 0 0 4.5 5.4v15.1l7.5-4.1 7.5 4.1V5.4a1.9 1.9 0 0 0-1.9-1.9Z" /></svg>
+      </button>
+    </form>
+  {% endif %}
+</article>

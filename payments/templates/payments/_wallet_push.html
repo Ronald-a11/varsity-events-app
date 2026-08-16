@@ -1,0 +1,111 @@
+{% comment %}
+  The waiting room for a wallet push. The PIN prompt lives on the payer's
+  handset — this page never asks for it, it just tracks what the phone does.
+{% endcomment %}
+
+<div class="card overflow-hidden" data-push-root
+     data-endpoint="{% url 'payments:status_json' payment.reference %}"
+     data-seconds="{{ payment.seconds_left }}">
+
+  <!-- Header -->
+  <div class="relative overflow-hidden bg-gradient-to-br from-brand-600 to-brand-800 px-6 py-8 text-center text-white">
+    <div class="pointer-events-none absolute inset-0 opacity-20"
+         style="background-image: radial-gradient(circle at 20% 20%, white 1px, transparent 1px); background-size: 22px 22px;"></div>
+
+    <!-- Handset with a pulsing prompt -->
+    <div class="relative mx-auto flex h-28 w-[4.5rem] items-center justify-center rounded-2xl border-4 border-white/80 bg-brand-950/60 shadow-2xl">
+      <span class="absolute -right-1 -top-1 flex h-4 w-4" data-push-ping>
+        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-flame-400 opacity-75"></span>
+        <span class="relative inline-flex h-4 w-4 rounded-full bg-flame-500"></span>
+      </span>
+      <span class="text-3xl" data-push-icon>{{ payment.method_icon }}</span>
+    </div>
+
+    <h1 class="mt-5 text-2xl font-extrabold tracking-tight" data-push-title>Check your phone</h1>
+    <p class="mt-1.5 text-sm text-white/80" data-push-lead>
+      {{ payment.get_method_display }} has sent a PIN prompt to
+      <span class="font-mono font-semibold text-white">{{ payment.phone_masked }}</span>
+    </p>
+
+    <div class="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 backdrop-blur">
+      <span class="spinner text-white" aria-hidden="true" data-push-spinner></span>
+      <span class="text-sm font-semibold" data-push-amount>{{ payment.amount_display }}</span>
+      <span class="text-white/50">·</span>
+      <span class="font-mono text-sm tabular-nums" data-push-timer>--:--</span>
+    </div>
+  </div>
+
+  <!-- Steps -->
+  <ol class="divide-y divide-hairline">
+    <li class="flex items-start gap-3.5 p-5" data-step="1">
+      <span class="step-dot" data-step-dot>1</span>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold text-ink">Prompt sent to your phone</p>
+        <p class="mt-0.5 text-xs text-ink-subtle">
+          It arrives as a pop-up or an SMS from {{ payment.get_method_display }}.
+        </p>
+      </div>
+    </li>
+
+    <li class="flex items-start gap-3.5 p-5" data-step="2">
+      <span class="step-dot" data-step-dot>2</span>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold text-ink">Enter your PIN on the handset</p>
+        <p class="mt-0.5 text-xs text-ink-subtle">
+          Type it on your phone, never here. We never see or store your PIN.
+        </p>
+      </div>
+    </li>
+
+    <li class="flex items-start gap-3.5 p-5" data-step="3">
+      <span class="step-dot" data-step-dot>3</span>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold text-ink">Your ticket unlocks itself</p>
+        <p class="mt-0.5 text-xs text-ink-subtle">
+          Stay on this page — it moves on the moment the money clears.
+        </p>
+      </div>
+    </li>
+  </ol>
+
+  <!-- Live status line -->
+  <div class="border-t border-hairline bg-surface-3 px-5 py-3.5">
+    <p class="flex items-center gap-2 text-xs text-ink-subtle" data-push-status>
+      <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500"></span>
+      Waiting for you to approve it…
+    </p>
+  </div>
+
+  <!-- Actions -->
+  <div class="space-y-3 p-5">
+    {% if payment.is_simulated %}
+      <a href="{% url 'payments:simulator' payment.reference %}" class="btn-primary w-full">
+        Open the payment simulator
+      </a>
+      <p class="text-center text-xs text-amber-600 dark:text-amber-400">
+        🧪 Simulated — no prompt was really sent to any phone.
+      </p>
+    {% else %}
+      <form method="post" action="{% url 'payments:resend' payment.reference %}" data-push-resend>
+        {% csrf_token %}
+        <button type="submit" class="btn-secondary w-full" data-push-resend-btn disabled>
+          Didn't get it? Send the prompt again
+          <span class="ml-1 font-mono text-xs tabular-nums text-ink-subtle" data-push-resend-in></span>
+        </button>
+      </form>
+    {% endif %}
+
+    <div class="flex gap-2">
+      <a href="{{ event.get_absolute_url }}" class="btn-ghost btn-sm flex-1">Event page</a>
+      <form method="post" action="{% url 'events:cancel_registration' event.slug %}" class="flex-1"
+            onsubmit="return confirm('Cancel this payment and release your place?')">
+        {% csrf_token %}
+        <button type="submit" class="btn-ghost btn-sm w-full text-rose-600">Cancel payment</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<p class="mt-4 text-center text-xs text-ink-subtle">
+  Reference <span class="font-mono">{{ payment.reference }}</span>
+</p>

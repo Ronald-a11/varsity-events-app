@@ -1,0 +1,58 @@
+﻿{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit {{ organization.name }}{% else %}Register a society{% endif %} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <h1 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+      {% if is_edit %}Edit society{% else %}Register a society{% endif %}
+    </h1>
+    <p class="mt-1 text-sm text-ink-subtle">
+      {% if is_edit %}
+        Keep your page current — it's the first thing students see.
+      {% else %}
+        Set up your society once, then publish as many events as you like. You'll be its owner.
+      {% endif %}
+    </p>
+
+    <form method="post" enctype="multipart/form-data" class="mt-8 space-y-6" novalidate>
+      {% csrf_token %}
+
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">Identity</h2>
+        <div class="mt-5 space-y-5">
+          {% include "partials/_field.html" with field=form.name %}
+          <div class="grid gap-5 sm:grid-cols-2">
+            {% include "partials/_field.html" with field=form.kind %}
+            {% include "partials/_field.html" with field=form.university %}
+          </div>
+          {% include "partials/_field.html" with field=form.tagline %}
+          {% include "partials/_field.html" with field=form.description %}
+        </div>
+      </section>
+
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">Branding</h2>
+        <div class="mt-5 grid gap-5 sm:grid-cols-2">
+          {% include "partials/_field.html" with field=form.logo %}
+          {% include "partials/_field.html" with field=form.cover %}
+        </div>
+      </section>
+
+      <section class="card p-6">
+        <h2 class="text-base font-bold text-ink">Contact</h2>
+        <div class="mt-5 grid gap-5 sm:grid-cols-2">
+          {% include "partials/_field.html" with field=form.email %}
+          {% include "partials/_field.html" with field=form.website %}
+          {% include "partials/_field.html" with field=form.instagram %}
+          {% include "partials/_field.html" with field=form.twitter %}
+        </div>
+      </section>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="submit" class="btn-primary">{% if is_edit %}Save changes{% else %}Register society{% endif %}</button>
+        <a href="{% if is_edit %}{{ organization.get_absolute_url }}{% else %}{% url 'organizations:list' %}{% endif %}" class="btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

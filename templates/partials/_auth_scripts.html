@@ -1,0 +1,193 @@
+{# Progressive enhancements for the auth forms. Everything degrades to a plain form. #}
+<script>
+  (function () {
+    /* ----------------------------------------------------------------
+       Signing in: say what's happening rather than sitting there
+    ---------------------------------------------------------------- */
+    document.querySelectorAll("form[data-auth-form]").forEach((form) => {
+      form.addEventListener("submit", () => {
+        if (!form.checkValidity || form.checkValidity()) {
+          const button = form.querySelector('button[type="submit"], button:not([type])');
+          const busyLabel = form.dataset.busyLabel || "Just a moment…";
+
+          if (button) {
+            // Fix the width first so swapping the label doesn't jump the layout.
+            button.style.minWidth = `${button.offsetWidth}px`;
+            // Blocking clicks rather than setting `disabled`: a disabled control
+            // can be dropped from the payload of the submit already in flight.
+            button.classList.add("pointer-events-none");
+            button.setAttribute("aria-busy", "true");
+            button.innerHTML = `<span class="spinner mr-2 align-[-2px]"></span>${busyLabel}`;
+          }
+
+          // readOnly, not disabled — read-only fields are still submitted.
+          form.querySelectorAll("input").forEach((field) => {
+            if (field.type !== "hidden" && field.type !== "checkbox") field.readOnly = true;
+            field.classList.add("opacity-60");
+          });
+          form.querySelectorAll("select").forEach((f) => f.classList.add("opacity-60"));
+
+          // If the server rejects the credentials the page reloads and this
+          // all resets; if it hangs, give the form back rather than trapping them.
+          setTimeout(() => {
+            if (!document.body.contains(form)) return;
+            const b = form.querySelector("button[aria-busy]");
+            if (b) {
+              b.classList.remove("pointer-events-none");
+              b.removeAttribute("aria-busy");
+              b.textContent = form.dataset.label || "Try again";
+            }
+            form.querySelectorAll("input, select").forEach((field) => {
+              field.readOnly = false;
+              field.classList.remove("opacity-60");
+            });
+          }, 12000);
+        }
+      });
+    });
+
+    /* ----------------------------------------------------------------
+       Show / hide password
+    ---------------------------------------------------------------- */
+    document.querySelectorAll('input[type="password"]').forEach((input) => {
+      const wrap = input.parentElement;
+      if (!wrap || wrap.querySelector("[data-toggle-password]")) return;
+
+      wrap.classList.add("relative");
+      input.classList.add("pr-11");
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("data-toggle-password", "");
+      btn.setAttribute("aria-label", "Show password");
+      btn.className =
+        "absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-subtle transition hover:text-ink";
+      btn.innerHTML =
+        '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1 1 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178a1 1 0 0 1 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>';
+
+      btn.addEventListener("click", () => {
+        const showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+        btn.classList.toggle("text-brand-500", !showing);
+      });
+
+      wrap.appendChild(btn);
+    });
+
+    /* ----------------------------------------------------------------
+       Caps lock warning — the commonest cause of a "wrong" password
+    ---------------------------------------------------------------- */
+    document.querySelectorAll('input[type="password"]').forEach((input) => {
+      const warn = document.createElement("p");
+      warn.className = "mt-1.5 hidden text-xs font-medium text-amber-600 dark:text-amber-400";
+      warn.textContent = "⇪ Caps Lock is on";
+      input.parentElement?.appendChild(warn);
+
+      const check = (e) => {
+        if (typeof e.getModifierState !== "function") return;
+        warn.classList.toggle("hidden", !e.getModifierState("CapsLock"));
+      };
+      input.addEventListener("keyup", check);
+      input.addEventListener("keydown", check);
+      input.addEventListener("blur", () => warn.classList.add("hidden"));
+    });
+
+    /* ----------------------------------------------------------------
+       Password strength meter (sign-up only)
+    ---------------------------------------------------------------- */
+    const pw = document.querySelector("#id_password1");
+    if (pw) {
+      const meter = document.createElement("div");
+      meter.className = "mt-2";
+      meter.innerHTML = `
+        <div class="flex gap-1" data-bars>
+          ${Array.from({ length: 4 })
+            .map(() => '<span class="h-1 flex-1 rounded-full bg-surface-3 transition-colors duration-300"></span>')
+            .join("")}
+        </div>
+        <p class="mt-1.5 text-xs text-ink-subtle" data-strength-label>Use at least 8 characters.</p>`;
+      pw.parentElement?.appendChild(meter);
+
+      const bars = meter.querySelectorAll("[data-bars] span");
+      const label = meter.querySelector("[data-strength-label]");
+
+      const LEVELS = [
+        { label: "Too weak", colour: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
+        { label: "Weak", colour: "bg-orange-500", text: "text-orange-600 dark:text-orange-400" },
+        { label: "Getting there", colour: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
+        { label: "Strong", colour: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+      ];
+
+      function score(value) {
+        if (!value) return -1;
+        let points = 0;
+        if (value.length >= 8) points += 1;
+        if (value.length >= 12) points += 1;
+        if (/[a-z]/.test(value) && /[A-Z]/.test(value)) points += 1;
+        if (/\d/.test(value)) points += 1;
+        if (/[^\w\s]/.test(value)) points += 1;
+        if (value.length < 8) return 0;
+        return Math.min(points - 1, 3);
+      }
+
+      pw.addEventListener("input", () => {
+        const level = score(pw.value);
+        bars.forEach((bar, i) => {
+          bar.className = "h-1 flex-1 rounded-full transition-colors duration-300 " +
+            (level >= 0 && i <= level ? LEVELS[level].colour : "bg-surface-3");
+        });
+        if (level < 0) {
+          label.className = "mt-1.5 text-xs text-ink-subtle";
+          label.textContent = "Use at least 8 characters.";
+        } else {
+          label.className = "mt-1.5 text-xs font-medium " + LEVELS[level].text;
+          label.textContent = LEVELS[level].label;
+        }
+      });
+    }
+
+    /* ----------------------------------------------------------------
+       Live username / email availability
+    ---------------------------------------------------------------- */
+    const endpoint = "{% url 'accounts:check_availability' %}";
+
+    ["username", "email"].forEach((field) => {
+      const input = document.querySelector(`#id_${field}`);
+      if (!input || !document.querySelector("#id_password1")) return; // sign-up only
+
+      const note = document.createElement("p");
+      note.className = "mt-1.5 hidden text-xs font-medium";
+      input.parentElement?.appendChild(note);
+
+      let timer = null;
+      input.addEventListener("input", () => {
+        clearTimeout(timer);
+        note.classList.add("hidden");
+        const value = input.value.trim();
+        if (value.length < 3) return;
+
+        timer = setTimeout(async () => {
+          try {
+            const res = await fetch(
+              `${endpoint}?field=${field}&value=${encodeURIComponent(value)}`,
+              { headers: { "X-Requested-With": "XMLHttpRequest" } }
+            );
+            const data = await res.json();
+            if (!data.checked) return;
+
+            note.textContent = (data.available ? "✓ " : "✕ ") + data.message;
+            note.className =
+              "mt-1.5 text-xs font-medium " +
+              (data.available
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400");
+            note.classList.remove("hidden");
+          } catch (e) {
+            /* offline or blocked — server-side validation still catches it */
+          }
+        }, 400);
+      });
+    });
+  })();
+</script>

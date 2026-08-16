@@ -1,0 +1,200 @@
+﻿{% comment %}
+Navigation is organised in three tiers so nothing competes for the same slot:
+
+  1. Browse  — the four public destinations, always visible
+  2. Manage  — everything an organizer runs, folded into one menu
+  3. Account — the signed-in person's own pages, under their avatar
+
+Staff get one extra top-level link, because moderation is a different job.
+{% endcomment %}
+<header class="sticky top-0 z-40 border-b border-white/10 bg-brand-950/95 backdrop-blur-xl">
+  <nav class="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+    <!-- Brand -->
+    <a href="{% url 'core:home' %}" class="group flex shrink-0 items-center gap-2.5">
+      <span class="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-flame-500 to-flame-600 shadow-lg transition duration-300 ease-spring group-hover:scale-105">
+        <svg class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 3 1.5 8.25 12 13.5l8.25-4.125V15h1.5V8.25L12 3Z" />
+          <path d="M5.25 11.06v3.69c0 1.2 3.02 2.5 6.75 2.5s6.75-1.3 6.75-2.5v-3.69L12 14.62l-6.75-3.56Z" />
+        </svg>
+      </span>
+      <span class="hidden font-display text-sm font-extrabold uppercase leading-tight tracking-tight text-white sm:block">
+        <span class="text-flame-400">{{ SITE_NAME_LEAD }}</span> {{ SITE_NAME_TAIL }}
+      </span>
+    </a>
+
+    <!-- 1. Browse -->
+    <div class="hidden items-center gap-0.5 lg:flex">
+      {% if user.is_authenticated %}
+        <a href="{% url 'core:discover' %}"
+           class="nav-link {% if request.resolver_match.url_name == 'discover' or request.resolver_match.url_name == 'home' %}nav-link-active{% endif %}">
+          Discover
+        </a>
+      {% endif %}
+      <a href="{% url 'events:list' %}"
+         class="nav-link {% if request.resolver_match.app_name == 'events' and request.resolver_match.url_name == 'list' %}nav-link-active{% endif %}">
+        Events
+      </a>
+      <a href="{% url 'events:gigs' %}"
+         class="nav-link {% if request.resolver_match.url_name == 'gigs' %}nav-link-active{% endif %}">
+        Gigs
+      </a>
+      <a href="{% url 'organizations:list' %}"
+         class="nav-link {% if request.resolver_match.app_name == 'organizations' %}nav-link-active{% endif %}">
+        Societies
+      </a>
+    </div>
+
+    <!-- Search -->
+    <button type="button" data-palette-open
+            class="ml-auto hidden items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/60 transition hover:border-white/30 hover:text-white xl:flex xl:w-56">
+      <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.3-4.3m1.8-4.7a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+      </svg>
+      <span class="flex-1 text-left">Search…</span>
+      <kbd class="rounded border border-white/20 px-1.5 py-0.5 text-2xs font-medium">⌘K</kbd>
+    </button>
+
+    <div class="ml-auto flex items-center gap-1 xl:ml-0">
+      <button type="button" data-palette-open aria-label="Search"
+              class="nav-icon xl:hidden">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.3-4.3m1.8-4.7a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+        </svg>
+      </button>
+
+      <!-- 2. Manage — one menu for everything an organizer runs -->
+      {% if user.is_authenticated and user.can_organize %}
+        <div class="relative hidden lg:block" data-dropdown>
+          <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')"
+                  class="nav-link flex items-center gap-1.5 {% if request.resolver_match.app_name == 'payments' or request.resolver_match.url_name == 'dashboard' %}nav-link-active{% endif %}">
+            Manage
+            {% if pending_verifications %}
+              <span class="flex h-4 min-w-4 items-center justify-center rounded-full bg-flame-500 px-1 text-2xs font-bold text-white">{{ pending_verifications }}</span>
+            {% endif %}
+            <svg class="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+
+          <div data-dropdown-panel class="absolute right-0 mt-2 hidden w-60 animate-scale-in overflow-hidden rounded-2xl border border-hairline bg-surface py-1 shadow-2xl">
+            <p class="px-4 pb-1.5 pt-2.5 text-2xs font-semibold uppercase tracking-widest text-ink-subtle">Events</p>
+            <a href="{% url 'events:dashboard' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Organizer dashboard</a>
+            <a href="{% url 'events:create' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Create an event</a>
+
+            <p class="border-t border-hairline px-4 pb-1.5 pt-2.5 text-2xs font-semibold uppercase tracking-widest text-ink-subtle">Money</p>
+            <a href="{% url 'payments:verify' %}" class="flex items-center justify-between px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">
+              Verify EcoCash
+              {% if pending_verifications %}
+                <span class="chip bg-amber-500/15 text-amber-600 dark:text-amber-400">{{ pending_verifications }}</span>
+              {% endif %}
+            </a>
+
+            <p class="border-t border-hairline px-4 pb-1.5 pt-2.5 text-2xs font-semibold uppercase tracking-widest text-ink-subtle">Societies</p>
+            <a href="{% url 'organizations:create' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Register a society</a>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Staff moderation is a separate job, so it keeps its own link -->
+      {% if user.is_authenticated and user.is_platform_staff %}
+        <a href="{% url 'core:staff_dashboard' %}"
+           class="nav-link hidden text-flame-300 lg:inline-block {% if request.resolver_match.url_name == 'staff_dashboard' %}nav-link-active{% endif %}">
+          Admin
+        </a>
+      {% endif %}
+
+      <!-- Theme -->
+      <button type="button" data-theme-toggle aria-label="Switch theme"
+              class="nav-icon">
+        <svg data-theme-icon-light class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+        </svg>
+        <svg data-theme-icon-dark class="hidden h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 15.912A9 9 0 1 1 8.088 2.25a7.5 7.5 0 0 0 13.662 13.662Z" />
+        </svg>
+      </button>
+
+      <!-- 3. Account -->
+      {% if user.is_authenticated %}
+        <div class="relative ml-1" data-dropdown>
+          <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')"
+                  aria-label="Account menu"
+                  class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 py-1 pl-1 pr-2 transition hover:border-white/30">
+            {% if user.avatar %}
+              <img src="{{ user.avatar.url }}" alt="" class="h-7 w-7 rounded-lg object-cover" />
+            {% else %}
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-azure-600 text-2xs font-bold text-white">{{ user.initials }}</span>
+            {% endif %}
+            <svg class="h-4 w-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" /></svg></button><div data-dropdown-panel class="absolute right-0 mt-2 hidden w-60 animate-scale-in overflow-hidden rounded-2xl border border-hairline bg-surface py-1 shadow-2xl">
+            <div class="border-b border-hairline px-4 py-3">
+              <p class="truncate text-sm font-semibold text-ink">{{ user.display_name }}</p>
+              <p class="truncate text-xs text-ink-subtle">{{ user.email }}</p>
+              {% if user.university %}
+                <span class="chip mt-1.5 bg-brand-500/10 text-brand-500">{{ user.university }}</span>
+              {% endif %}
+            </div>
+
+            <a href="{% url 'accounts:tickets' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">My tickets</a>
+            <a href="{% url 'accounts:saved' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Saved events</a>
+            <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Profile &amp; settings</a>
+
+            {% if user.can_organize %}
+              <a href="{% url 'events:dashboard' %}" class="block border-t border-hairline px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink lg:hidden">Organizer dashboard</a>
+              <a href="{% url 'payments:verify' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink lg:hidden">Verify EcoCash</a>
+            {% endif %}
+            {% if user.is_platform_staff %}
+              <a href="{% url 'admin:index' %}" class="block border-t border-hairline px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Django admin</a>
+            {% endif %}
+
+            <form action="{% url 'accounts:logout' %}" method="post" class="border-t border-hairline">
+              {% csrf_token %}
+              <button type="submit" class="w-full px-4 py-2 text-left text-sm text-rose-500 transition hover:bg-rose-500/10">Sign out</button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <a href="{% url 'accounts:login' %}" class="nav-link hidden sm:inline-block">Sign in</a>
+        <a href="{% url 'accounts:register' %}" class="nav-cta">Get Started</a>
+      {% endif %}
+
+      <button type="button" data-menu-toggle aria-label="Menu"
+              class="nav-icon lg:hidden">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile: same three tiers, stacked and labelled -->
+  <div data-mobile-menu class="hidden animate-fade-up border-t border-hairline bg-surface px-4 py-3 lg:hidden">
+    <p class="px-3 pb-1 text-2xs font-semibold uppercase tracking-widest text-ink-subtle">Browse</p>
+    {% if user.is_authenticated %}
+      <a href="{% url 'core:discover' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Discover</a>
+    {% endif %}
+    <a href="{% url 'events:list' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Events</a>
+    <a href="{% url 'events:gigs' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Varsity Gigs</a>
+    <a href="{% url 'organizations:list' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Societies</a>
+
+    {% if user.is_authenticated %}
+      <p class="mt-2 border-t border-hairline px-3 pb-1 pt-3 text-2xs font-semibold uppercase tracking-widest text-ink-subtle">You</p>
+      <a href="{% url 'accounts:tickets' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">My tickets</a>
+      <a href="{% url 'accounts:saved' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Saved events</a>
+
+      {% if user.can_organize %}
+        <p class="mt-2 border-t border-hairline px-3 pb-1 pt-3 text-2xs font-semibold uppercase tracking-widest text-ink-subtle">Manage</p>
+        <a href="{% url 'events:dashboard' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Organizer dashboard</a>
+        <a href="{% url 'events:create' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Create an event</a>
+        <a href="{% url 'payments:verify' %}" class="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">
+          Verify EcoCash
+          {% if pending_verifications %}<span class="chip bg-amber-500/15 text-amber-600 dark:text-amber-400">{{ pending_verifications }}</span>{% endif %}
+        </a>
+      {% endif %}
+      {% if user.is_platform_staff %}
+        <a href="{% url 'core:staff_dashboard' %}" class="mt-2 block border-t border-hairline rounded-lg px-3 py-2 pt-3 text-sm font-medium text-brand-500 hover:bg-brand-500/10">Admin</a>
+      {% endif %}
+    {% else %}
+      <a href="{% url 'accounts:login' %}" class="mt-2 block border-t border-hairline rounded-lg px-3 py-2 pt-3 text-sm font-medium text-ink-muted hover:bg-surface-3">Sign in</a>
+    {% endif %}
+  </div>
+</header>

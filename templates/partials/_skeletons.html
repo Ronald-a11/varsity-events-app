@@ -1,0 +1,52 @@
+{# Loading placeholders. Pass `count` (default 3) and `kind`: card | row | stat. #}
+{% with n=count|default:3 %}
+  {% if kind == "row" %}
+    <ul class="divide-y divide-hairline" aria-hidden="true">
+      {% for _ in ""|ljust:n %}
+        <li class="flex items-center gap-3 px-5 py-3.5">
+          <div class="skeleton h-9 w-9 shrink-0 rounded-xl"></div>
+          <div class="min-w-0 flex-1 space-y-2">
+            <div class="skeleton h-3.5 w-2/3"></div>
+            <div class="skeleton h-3 w-1/3"></div>
+          </div>
+          <div class="skeleton h-6 w-14 rounded-full"></div>
+        </li>
+      {% endfor %}
+    </ul>
+
+  {% elif kind == "stat" %}
+    <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-hidden="true">
+      {% for _ in ""|ljust:n %}
+        <div class="card space-y-3 p-5">
+          <div class="skeleton h-3 w-20"></div>
+          <div class="skeleton h-8 w-16"></div>
+          <div class="skeleton h-2.5 w-24"></div>
+        </div>
+      {% endfor %}
+    </dl>
+
+  {% else %}
+    <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+      {% for _ in ""|ljust:n %}
+        <article class="card overflow-hidden">
+          <div class="skeleton aspect-[16/9] rounded-none"></div>
+          <div class="space-y-3 p-4">
+            <div class="flex gap-2">
+              <div class="skeleton h-5 w-20 rounded-full"></div>
+              <div class="skeleton h-5 w-12 rounded-full"></div>
+            </div>
+            <div class="skeleton h-4 w-4/5"></div>
+            <div class="skeleton h-3 w-full"></div>
+            <div class="skeleton h-3 w-2/3"></div>
+            <div class="flex items-center gap-2 border-t border-hairline pt-3">
+              <div class="skeleton h-6 w-6 rounded-lg"></div>
+              <div class="skeleton h-3 w-24"></div>
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<span class="sr-only" role="status">Loading…</span>

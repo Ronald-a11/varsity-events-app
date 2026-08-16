@@ -1,0 +1,75 @@
+{# A featured event as a full-width horizontal card, for stacking in a column. #}
+<article class="card card-hover group grid overflow-hidden sm:grid-cols-[minmax(0,18rem)_1fr] lg:grid-cols-[minmax(0,22rem)_1fr] reveal">
+  <a href="{{ event.get_absolute_url }}" class="relative block aspect-[16/10] overflow-hidden bg-surface-3 sm:aspect-auto sm:min-h-[13rem]">
+    {% if event.banner %}
+      <img src="{{ event.banner.url }}" alt="{{ event.title }}"
+           class="img-fade h-full w-full object-cover transition duration-700 ease-spring group-hover:scale-[1.04]"
+           loading="lazy" decoding="async" />
+    {% else %}
+      <div class="relative h-full w-full bg-gradient-to-br from-brand-500 via-brand-600 to-azure-600">
+        <div class="absolute inset-0 bg-grid-faint bg-grid opacity-30"></div>
+        <span class="absolute inset-0 flex items-center justify-center text-5xl opacity-90">{{ event.category.icon|default:"🎓" }}</span>
+      </div>
+    {% endif %}
+
+    <div class="absolute inset-0 bg-gradient-to-t from-brand-950/50 via-transparent to-transparent"></div>
+
+    <div class="absolute left-3 top-3 flex flex-col items-start gap-1.5">
+      {# The layout is reused for any stacked column, so only badge what staff actually picked. #}
+      {% if event.is_featured %}
+        <span class="chip bg-flame-500 text-white shadow-lg">★ Featured</span>
+      {% endif %}
+      {% if event.is_live %}
+        <span class="chip bg-emerald-500 text-white shadow-lg">
+          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>Happening now
+        </span>
+      {% endif %}
+    </div>
+
+    <!-- Date block, so a stacked column still scans by date -->
+    <div class="absolute bottom-3 left-3 flex flex-col items-center rounded-xl bg-white/95 px-3 py-1.5 text-center shadow-lg backdrop-blur dark:bg-brand-900/90">
+      <span class="text-2xs font-bold uppercase tracking-wider text-flame-600 dark:text-flame-400">{{ event.starts_at|date:"M" }}</span>
+      <span class="font-display text-xl font-extrabold leading-none text-ink">{{ event.starts_at|date:"j" }}</span>
+    </div>
+  </a>
+
+  <div class="flex flex-col justify-center p-5 sm:p-6">
+    <div class="flex flex-wrap items-center gap-2 text-2xs font-bold uppercase tracking-[0.15em]">
+      {% if event.category %}
+        <span class="text-{{ event.category.color }}-600 dark:text-{{ event.category.color }}-400">{{ event.category.name }}</span>
+      {% endif %}
+      {% if event.organization.university %}
+        <span class="h-px w-4 bg-hairline"></span>
+        <span class="text-ink-subtle">{{ event.organization.university }}</span>
+      {% endif %}
+    </div>
+
+    <h3 class="mt-2 font-display text-xl font-extrabold leading-tight tracking-tight text-ink sm:text-2xl">
+      <a href="{{ event.get_absolute_url }}" class="transition hover:text-brand-600 dark:hover:text-brand-400">{{ event.title }}</a>
+    </h3>
+
+    {% if event.summary %}
+      <p class="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-muted">{{ event.summary }}</p>
+    {% endif %}
+
+    <p class="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-2xs uppercase tracking-wider text-ink-subtle">
+      <span class="font-semibold text-ink-muted">{{ event.organization.name }}</span>
+      <span class="opacity-40">|</span>
+      <time>{{ event.starts_at|date:"D j M · H:i" }}</time>
+      <span class="opacity-40">|</span>
+      <span class="truncate normal-case tracking-normal">{{ event.location_display }}</span>
+    </p>
+
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <a href="{{ event.get_absolute_url }}" class="btn-primary btn-sm">
+        {% if event.is_free %}Get a free ticket{% else %}Tickets · {{ event.price_display }}{% endif %}
+      </a>
+      {% if event.tickets_left_display %}
+        <span class="chip bg-{{ event.tickets_tone }}-500/10 text-{{ event.tickets_tone }}-600 dark:text-{{ event.tickets_tone }}-400">
+          🎟️ {{ event.tickets_left_display }}
+        </span>
+      {% endif %}
+      {% include "partials/_availability.html" with event=event %}
+    </div>
+  </div>
+</article>

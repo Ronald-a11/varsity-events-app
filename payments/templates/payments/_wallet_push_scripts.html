@@ -1,0 +1,145 @@
+{% comment %}
+  Drives the wallet-push waiting room: countdown, live polling, step
+  advancement, and the resend cooldown.
+{% endcomment %}
+<script>
+  (function () {
+    const root = document.querySelector("[data-push-root]");
+    if (!root) return;
+
+    const endpoint = root.dataset.endpoint;
+    const timerEl = root.querySelector("[data-push-timer]");
+    const statusEl = root.querySelector("[data-push-status]");
+    const titleEl = root.querySelector("[data-push-title]");
+    const leadEl = root.querySelector("[data-push-lead]");
+    const spinner = root.querySelector("[data-push-spinner]");
+    const ping = root.querySelector("[data-push-ping]");
+    const dots = [...root.querySelectorAll("[data-step-dot]")];
+    const resendBtn = root.querySelector("[data-push-resend-btn]");
+    const resendIn = root.querySelector("[data-push-resend-in]");
+
+    let secondsLeft = parseInt(root.dataset.seconds || "0", 10);
+    // Long enough that people give the prompt a fair chance before retrying.
+    let resendCooldown = 45;
+    let finished = false;
+
+    const clock = (s) =>
+      `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+    function setStep(n) {
+      dots.forEach((dot, i) => {
+        const step = i + 1;
+        dot.classList.toggle("step-dot-done", step < n);
+        dot.classList.toggle("step-dot-active", step === n);
+        if (step < n) dot.textContent = "✓";
+      });
+    }
+
+    function say(text, tone) {
+      statusEl.innerHTML =
+        `<span class="h-1.5 w-1.5 rounded-full ${tone || "bg-brand-500 animate-pulse"}"></span>` +
+        text;
+    }
+
+    function stopWaiting() {
+      finished = true;
+      spinner?.classList.add("hidden");
+      ping?.classList.add("hidden");
+      resendBtn?.setAttribute("disabled", "disabled");
+    }
+
+    // Never poll forever. Roughly ten minutes, well past the seat hold.
+    const MAX_ATTEMPTS = 120;
+
+    // -- countdown ----------------------------------------------------
+
+    setStep(2);
+    timerEl.textContent = clock(secondsLeft);
+
+    const ticker = setInterval(() => {
+      if (finished) return clearInterval(ticker);
+
+      secondsLeft = Math.max(0, secondsLeft - 1);
+      timerEl.textContent = clock(secondsLeft);
+
+      if (resendCooldown > 0 && resendBtn) {
+        resendCooldown -= 1;
+        resendIn.textContent = `(${resendCooldown}s)`;
+        if (resendCooldown === 0) {
+          resendBtn.removeAttribute("disabled");
+          resendIn.textContent = "";
+        }
+      }
+
+      if (secondsLeft === 0) {
+        stopWaiting();
+        say("Your held place has been released.", "bg-slate-400");
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    }, 1000);
+
+    // -- polling ------------------------------------------------------
+
+    let attempts = 0;
+
+    async function poll() {
+      if (finished) return;
+      attempts += 1;
+
+      if (attempts > MAX_ATTEMPTS) {
+        stopWaiting();
+        say("Stopped checking. Refresh to see where this payment got to.", "bg-slate-400");
+        return;
+      }
+
+      try {
+        const res = await fetch(endpoint, {
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
+
+        // A payment that no longer exists will never settle — retrying it just
+        // hammers the server. Anything else (a 5xx, a blip) is worth retrying.
+        if (res.status === 404 || res.status === 410) {
+          stopWaiting();
+          say("We can't find this payment any more.", "bg-rose-500");
+          return;
+        }
+        if (!res.ok) return;
+
+        const state = await res.json();
+
+        if (state.settled && state.ticket_url) {
+          stopWaiting();
+          setStep(4);
+          titleEl.textContent = "Payment received";
+          leadEl.textContent = "Taking you to your ticket…";
+          say("Confirmed — your ticket is live.", "bg-emerald-500");
+          setTimeout(() => (window.location = state.ticket_url), 900);
+          return;
+        }
+
+        if (!state.open) {
+          stopWaiting();
+          say(state.label || "That payment didn't go through.", "bg-rose-500");
+          setTimeout(() => window.location.reload(), 1200);
+          return;
+        }
+
+        // Still waiting — reassure rather than sit silent.
+        if (attempts > 6) say("Still waiting — the prompt can take a minute.");
+      } catch (e) {
+        /* transient blip; the next tick tries again */
+      }
+    }
+
+    // Fast at first, when the payer is most likely mid-PIN, then ease off.
+    // Self-scheduling rather than setInterval, so a slow response can't stack
+    // requests up behind itself.
+    async function loop() {
+      await poll();
+      if (finished) return;
+      setTimeout(loop, attempts <= 10 ? 3000 : 6000);
+    }
+    loop();
+  })();
+</script>

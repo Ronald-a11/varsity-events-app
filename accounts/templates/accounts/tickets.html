@@ -1,0 +1,62 @@
+﻿{% extends "base.html" %}
+
+{% block title %}My tickets · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  {% include "partials/_page_header.html" with crumbs=crumbs title="My tickets" subtitle="Everything you've signed up for." %}
+
+  <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+    {% include "partials/_tabs.html" with tabs=tabs %}
+
+    {% if registrations %}
+      <ul class="mt-6 space-y-3">
+        {% for reg in registrations %}
+          <li class="card flex flex-wrap items-center gap-4 p-4">
+            <div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl {% if reg.status == 'cancelled' or reg.event.has_ended %}bg-surface-3 text-ink-subtle{% else %}bg-brand-500/10 text-brand-600 dark:text-brand-400{% endif %}">
+              <span class="text-[10px] font-bold uppercase">{{ reg.event.starts_at|date:"M" }}</span>
+              <span class="text-lg font-extrabold leading-none">{{ reg.event.starts_at|date:"j" }}</span>
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <a href="{{ reg.event.get_absolute_url }}" class="font-semibold text-ink hover:text-brand-600">{{ reg.event.title }}</a>
+                <span class="chip
+                  {% if reg.status == 'confirmed' %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
+                  {% elif reg.status == 'waitlisted' %}bg-amber-500/10 text-amber-600 dark:text-amber-400
+                  {% elif reg.status == 'awaiting_payment' %}bg-orange-500/10 text-orange-600 dark:text-orange-400
+                  {% elif reg.status == 'pending' %}bg-sky-500/10 text-sky-600 dark:text-sky-400
+                  {% else %}bg-surface-3 text-ink-subtle{% endif %}">{{ reg.get_status_display }}</span>
+                {% if reg.event.is_cancelled %}<span class="chip bg-rose-500/10 text-rose-600 dark:text-rose-400">Event cancelled</span>{% endif %}
+              </div>
+              <p class="mt-1 truncate text-xs text-ink-subtle">
+                {{ reg.event.starts_at|date:"D, j M Y · H:i" }} · {{ reg.event.location_display }}
+              </p>
+              <p class="mt-0.5 font-mono text-xs text-ink-subtle">{{ reg.ticket_code }}</p>
+            </div>
+
+            {% if reg.needs_payment %}
+              <a href="{% url 'payments:checkout' reg.event.slug %}" class="btn-primary btn-sm">
+                Pay {{ reg.event.price_display }}
+              </a>
+            {% elif reg.status != 'cancelled' %}
+              <a href="{% url 'events:ticket' reg.ticket_code %}" class="btn-secondary btn-sm">View ticket</a>
+            {% else %}
+              <a href="{{ reg.event.get_absolute_url }}" class="btn-ghost btn-sm">Event page</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="card mt-6 px-6 py-16 text-center">
+        <p class="text-4xl">🎫</p>
+        <h3 class="mt-4 text-lg font-semibold text-ink">
+          {% if tab == 'past' %}No past events yet
+          {% elif tab == 'cancelled' %}Nothing cancelled
+          {% else %}No upcoming tickets{% endif %}
+        </h3>
+        <p class="mt-1 text-sm text-ink-subtle">Something's always on — go and find it.</p>
+        <a href="{% url 'events:list' %}" class="btn-primary mt-6">Browse events</a>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

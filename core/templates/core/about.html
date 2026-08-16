@@ -1,0 +1,75 @@
+﻿{% extends "base.html" %}
+
+{% block title %}How it works · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+    <h1 class="text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">How {{ SITE_NAME }} works</h1>
+    <p class="mt-4 text-lg text-ink-muted">
+      University events in Zimbabwe live in WhatsApp groups, faded notice-board posters and
+      statuses that expire in 24 hours. This puts them all in one place — every university,
+      searchable, ticketed, and honest about whether tickets are still going.
+    </p>
+
+    <section class="mt-12">
+      <h2 class="section-title">For students</h2>
+      <ol class="mt-5 space-y-5">
+        <li class="card flex gap-4 p-5">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">1</span>
+          <div>
+            <h3 class="font-semibold text-ink">Sign in and see everything</h3>
+            <p class="mt-1 text-sm text-ink-muted">
+              Tell us your university and what you're into. You land on a feed of what's on right
+              now — your own campus first, every other Zimbabwean university right behind it.
+            </p>
+          </div>
+        </li>
+        <li class="card flex gap-4 p-5">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">2</span>
+          <div>
+            <h3 class="font-semibold text-ink">See where to buy — or that it's gone</h3>
+            <p class="mt-1 text-sm text-ink-muted">
+              Every event lists exactly where tickets are sold: the SRC offices, a partner outlet,
+              EcoCash, the door. Each outlet shows whether it still has stock, and anything that's
+              gone is marked <strong>SOLD OUT</strong> or <strong>not currently available</strong> — no wasted trips.
+            </p>
+          </div>
+        </li>
+        <li class="card flex gap-4 p-5">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">3</span>
+          <div>
+            <h3 class="font-semibold text-ink">Show up</h3>
+            <p class="mt-1 text-sm text-ink-muted">Add it to your calendar, then flash your ticket at the door.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="mt-14">
+      <h2 class="section-title">For societies</h2>
+      <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        <div class="card p-5">
+          <h3 class="font-semibold text-ink">📣 Publish in minutes</h3>
+          <p class="mt-1 text-sm text-ink-muted">Draft it, preview it, publish when you're ready.</p>
+        </div>
+        <div class="card p-5">
+          <h3 class="font-semibold text-ink">📊 Track sign-ups live</h3>
+          <p class="mt-1 text-sm text-ink-muted">Capacity, waitlist and turnout in one dashboard.</p>
+        </div>
+        <div class="card p-5">
+          <h3 class="font-semibold text-ink">✅ Check people in</h3>
+          <p class="mt-1 text-sm text-ink-muted">Type or scan a ticket code at the door — duplicates get flagged.</p>
+        </div>
+        <div class="card p-5">
+          <h3 class="font-semibold text-ink">📄 Export everything</h3>
+          <p class="mt-1 text-sm text-ink-muted">Download your attendee list as CSV when it's over.</p>
+        </div>
+      </div>
+
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href="{% url 'organizations:create' %}" class="btn-primary">Register a society</a>
+        <a href="{% url 'events:list' %}" class="btn-secondary">Browse events first</a>
+      </div>
+    </section>
+  </div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% comment %}
+A society set the same print way as a news row: numeral in the margin, ruled
+kicker, display name, standfirst, then a dateline of the numbers that matter.
+
+Pass `organization` and `counter`.
+{% endcomment %}
+<article class="group grid grid-cols-[2.5rem_1fr] gap-x-4 py-6 sm:grid-cols-[3.5rem_auto_1fr] sm:gap-x-6 reveal">
+  <div class="select-none pt-0.5">
+    <span class="font-display text-2xl font-extrabold leading-none text-transparent sm:text-4xl"
+          style="-webkit-text-stroke: 1.5px rgb(var(--ink-subtle) / 0.45);">
+      {{ counter|stringformat:"02d" }}
+    </span>
+  </div>
+
+  <!-- Mark -->
+  <a href="{{ organization.get_absolute_url }}" class="col-start-2 row-start-1 hidden shrink-0 sm:block">
+    {% if organization.logo %}
+      <img src="{{ organization.logo.url }}" alt=""
+           class="img-fade h-16 w-16 rounded-xl object-cover transition duration-500 ease-spring group-hover:scale-105"
+           loading="lazy" decoding="async" />
+    {% else %}
+      <span class="flex h-16 w-16 items-center justify-center rounded-xl bg-brand-900 font-display text-lg font-bold text-white">
+        {{ organization.initials }}
+      </span>
+    {% endif %}
+  </a>
+
+  <div class="min-w-0">
+    <div class="flex flex-wrap items-center gap-2 text-2xs font-bold uppercase tracking-[0.15em]">
+      <span class="text-brand-600 dark:text-brand-400">{{ organization.get_kind_display }}</span>
+      {% if organization.university %}
+        <span class="h-px w-4 bg-hairline"></span>
+        <span class="text-ink-subtle">{{ organization.university }}</span>
+      {% endif %}
+      {% if organization.is_verified %}
+        <span class="h-px w-4 bg-hairline"></span>
+        <span class="flex items-center gap-1 text-sky-600 dark:text-sky-400">
+          <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.6 2.3a2 2 0 0 1 2.8 0l.8.8h1.2a2 2 0 0 1 2 2v1.2l.8.8a2 2 0 0 1 0 2.8l-.8.8v1.2a2 2 0 0 1-2 2h-1.2l-.8.8a2 2 0 0 1-2.8 0l-.8-.8H7.4a2 2 0 0 1-2-2v-1.2l-.8-.8a2 2 0 0 1 0-2.8l.8-.8V5.1a2 2 0 0 1 2-2h1.2l.8-.8Zm4.1 5.6a.75.75 0 0 0-1.1-1l-2.5 3-1-1a.75.75 0 1 0-1.1 1l1.6 1.6a.75.75 0 0 0 1.1 0l3-3.6Z" clip-rule="evenodd" /></svg>
+          Verified
+        </span>
+      {% endif %}
+    </div>
+
+    <h3 class="mt-2 font-display text-lg font-extrabold leading-tight tracking-tight text-ink sm:text-2xl">
+      <a href="{{ organization.get_absolute_url }}" class="transition hover:text-brand-600 dark:hover:text-brand-400">
+        {{ organization.name }}
+      </a>
+    </h3>
+
+    {% if organization.tagline %}
+      <p class="mt-2 line-clamp-2 max-w-2xl text-sm leading-relaxed text-ink-muted">{{ organization.tagline }}</p>
+    {% endif %}
+
+    <p class="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-2xs uppercase tracking-wider text-ink-subtle">
+      <span><strong class="font-semibold text-ink">{{ organization.event_count|default:0 }}</strong> events</span>
+      <span class="opacity-40">|</span>
+      <span><strong class="font-semibold text-ink">{{ organization.member_count }}</strong> members</span>
+      <span class="opacity-40">|</span>
+      <span><strong class="font-semibold text-ink">{{ organization.follower_count }}</strong> followers</span>
+      {% if organization.university %}
+        <span class="opacity-40">|</span>
+        <a href="{% url 'events:list' %}?university={{ organization.university.slug }}"
+           class="font-semibold text-brand-600 hover:underline dark:text-brand-400">Their events →</a>
+      {% endif %}
+    </p>
+  </div>
+</article>

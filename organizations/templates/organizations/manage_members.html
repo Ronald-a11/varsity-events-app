@@ -1,0 +1,68 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Members · {{ organization.name }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+    <a href="{{ organization.get_absolute_url }}" class="text-sm text-ink-subtle hover:text-brand-600">← Back to {{ organization.name }}</a>
+
+    <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink">Members</h1>
+    <p class="mt-1 text-sm text-ink-subtle">
+      {{ memberships|length }} member{{ memberships|length|pluralize }}. Admins can publish events and manage this list.
+    </p>
+
+    <div class="mt-8 overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card">
+      <table class="min-w-full divide-y divide-hairline text-sm">
+        <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-ink-subtle">
+          <tr>
+            <th class="px-4 py-3 font-semibold">Member</th>
+            <th class="px-4 py-3 font-semibold">Role</th>
+            <th class="hidden px-4 py-3 font-semibold sm:table-cell">Joined</th>
+            <th class="px-4 py-3 text-right font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-hairline">
+          {% for membership in memberships %}
+            <tr class="hover:bg-surface-2">
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-2.5">
+                  <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-3 text-[11px] font-bold text-ink-muted">{{ membership.user.initials }}</span>
+                  <div class="min-w-0">
+                    <a href="{{ membership.user.get_absolute_url }}" class="truncate font-medium text-ink hover:text-brand-600">{{ membership.user.display_name }}</a>
+                    <p class="truncate text-xs text-ink-subtle">{{ membership.user.email }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                <span class="chip {% if membership.role == 'owner' %}bg-brand-500/10 text-brand-600 dark:text-brand-400{% elif membership.role == 'admin' %}bg-sky-500/10 text-sky-600 dark:text-sky-400{% else %}bg-surface-3 text-ink-muted{% endif %}">
+                  {{ membership.get_role_display }}
+                </span>
+                {% if membership.title %}<p class="mt-1 text-xs text-ink-subtle">{{ membership.title }}</p>{% endif %}
+              </td>
+              <td class="hidden whitespace-nowrap px-4 py-3 text-ink-subtle sm:table-cell">{{ membership.joined_at|date:"j M Y" }}</td>
+              <td class="px-4 py-3">
+                {% if membership.role != 'owner' %}
+                  <form method="post" class="flex justify-end gap-1.5">
+                    {% csrf_token %}
+                    <input type="hidden" name="membership_id" value="{{ membership.pk }}" />
+                    {% if membership.role == 'member' %}
+                      <button name="action" value="admin" class="btn-secondary btn-sm">Make admin</button>
+                    {% else %}
+                      <button name="action" value="member" class="btn-secondary btn-sm">Make member</button>
+                    {% endif %}
+                    <button name="action" value="remove" class="btn-ghost btn-sm text-rose-600"
+                            onclick="return confirm('Remove {{ membership.user.display_name|escapejs }} from {{ organization.name|escapejs }}?')">Remove</button>
+                  </form>
+                {% else %}
+                  <p class="text-right text-xs text-ink-subtle">Owner</p>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="px-4 py-12 text-center text-sm text-ink-subtle">No members yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

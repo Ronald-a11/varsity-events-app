@@ -1,0 +1,21 @@
+﻿{# Ticket availability badge. Pass `event`; optional `size="lg"`. #}
+{% with a=event.availability %}
+  <span
+    class="chip {% if size == 'lg' %}px-3 py-1.5 text-sm{% endif %}
+    {% if a.tone == 'emerald' %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
+    {% elif a.tone == 'amber' %}bg-amber-500/10 text-amber-600 dark:text-amber-400
+    {% elif a.tone == 'rose' %}bg-rose-500/10 text-rose-600 dark:text-rose-400
+    {% else %}bg-surface-3 text-ink-muted{% endif %}"
+  >
+    {% if a.state == 'sold_out' %}
+      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+    {% elif a.state == 'unavailable' or a.state == 'closed' %}
+      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75M6.75 21h10.5a1.5 1.5 0 0 0 1.5-1.5v-7.5a1.5 1.5 0 0 0-1.5-1.5H6.75a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6.75 21Z" /></svg>
+    {% elif a.state == 'waitlist' %}
+      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+    {% else %}
+      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+    {% endif %}
+    {{ a.label }}
+  </span>
+{% endwith %}

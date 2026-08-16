@@ -1,0 +1,30 @@
+﻿{% if messages %}
+  <div class="pointer-events-none fixed inset-x-0 top-20 z-50 mx-auto flex w-full max-w-md flex-col gap-2 px-4">
+    {% for message in messages %}
+      <div
+        data-alert
+        class="pointer-events-auto flex items-start gap-3 rounded-2xl border p-3.5 text-sm shadow-2xl backdrop-blur-xl animate-fade-up
+        {% if message.tags == 'success' %}border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
+        {% elif message.tags == 'error' %}border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400
+        {% elif message.tags == 'warning' %}border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400
+        {% else %}border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400{% endif %}"
+      >
+        <span class="mt-0.5 shrink-0">
+          {% if message.tags == 'success' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+          {% elif message.tags == 'error' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+          {% elif message.tags == 'warning' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+          {% else %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25h1.5v5.25m-.75-9h.008v.008H12V7.5Z" /><circle cx="12" cy="12" r="9" /></svg>
+          {% endif %}
+        </span>
+        <p class="flex-1 font-medium">{{ message }}</p>
+        <button type="button" data-dismiss class="shrink-0 opacity-50 transition hover:opacity-100">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

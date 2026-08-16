@@ -1,0 +1,17 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Page not found · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-md px-4 py-24 text-center sm:px-6">
+    <p class="text-6xl font-extrabold text-brand-600">404</p>
+    <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-ink">We can't find that page</h1>
+    <p class="mt-2 text-sm text-ink-subtle">
+      The event may have been taken down, or the link might be a draft only its organizer can see.
+    </p>
+    <div class="mt-8 flex justify-center gap-3">
+      <a href="{% url 'events:list' %}" class="btn-primary">Browse events</a>
+      <a href="{% url 'core:home' %}" class="btn-secondary">Go home</a>
+    </div>
+  </div>
+{% endblock %}

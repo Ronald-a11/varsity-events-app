@@ -1,0 +1,61 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Payment simulator · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-md px-4 py-12 sm:px-6">
+    <div class="rounded-2xl border-2 border-dashed border-amber-300 bg-amber-500/10 p-4 text-center">
+      <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">🧪 Payment simulator</p>
+      <p class="mt-1 text-xs text-amber-800">
+        This page stands in for Pesepay because no live credentials are configured.
+        Nothing here moves real money.
+      </p>
+    </div>
+
+    <div class="card mt-5 overflow-hidden">
+      <div class="bg-brand-900 px-6 py-6 text-center text-white">
+        <p class="text-xs font-semibold uppercase tracking-widest text-ink-subtle">Amount due</p>
+        <p class="mt-1 text-3xl font-extrabold">{{ payment.amount_display }}</p>
+        <p class="mt-2 text-sm text-slate-300">{{ event.title }}</p>
+      </div>
+
+      <dl class="space-y-2.5 border-b border-hairline p-6 text-sm">
+        <div class="flex justify-between gap-3">
+          <dt class="text-ink-subtle">Method</dt>
+          <dd class="font-medium text-ink">{{ payment.method_icon }} {{ payment.get_method_display }}</dd>
+        </div>
+        {% if payment.phone %}
+          <div class="flex justify-between gap-3">
+            <dt class="text-ink-subtle">Wallet</dt>
+            <dd class="font-medium text-ink">{{ payment.phone }}</dd>
+          </div>
+        {% endif %}
+        <div class="flex justify-between gap-3">
+          <dt class="text-ink-subtle">Reference</dt>
+          <dd class="font-mono text-xs text-ink-muted">{{ payment.reference }}</dd>
+        </div>
+      </dl>
+
+      <form method="post" class="space-y-3 p-6">
+        {% csrf_token %}
+        <p class="text-center text-sm text-ink-muted">Choose what the gateway should report back:</p>
+
+        <button type="submit" name="outcome" value="paid" class="btn-primary w-full py-3">
+          ✓ Approve payment
+        </button>
+        <button type="submit" name="outcome" value="cancelled" class="btn-secondary w-full">
+          Cancel payment
+        </button>
+        <button type="submit" name="outcome" value="failed" class="btn-ghost w-full text-rose-600">
+          Simulate a failure
+        </button>
+      </form>
+    </div>
+
+    <p class="mt-4 text-center text-xs text-ink-subtle">
+      Set <code class="rounded bg-surface-3 px-1.5 py-0.5">PESEPAY_INTEGRATION_KEY</code> and
+      <code class="rounded bg-surface-3 px-1.5 py-0.5">PESEPAY_ENCRYPTION_KEY</code> in
+      <code class="rounded bg-surface-3 px-1.5 py-0.5">.env</code> to switch to live payments.
+    </p>
+  </div>
+{% endblock %}

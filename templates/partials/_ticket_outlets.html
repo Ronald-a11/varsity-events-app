@@ -1,0 +1,110 @@
+﻿{# Where to buy tickets, and what's left. Pass `event`. #}
+{% with a=event.availability %}
+  <section class="card overflow-hidden">
+    <div class="flex items-center justify-between gap-3 border-b border-hairline px-5 py-4">
+      <h2 class="text-base font-bold text-ink">Where to get tickets</h2>
+      {% include "partials/_availability.html" with event=event %}
+    </div>
+
+    {% if a.state == 'sold_out' or a.state == 'unavailable' or a.state == 'closed' %}
+      <!-- Nothing to buy — say so plainly rather than listing dead outlets. -->
+      <div class="px-5 py-8 text-center">
+        <p class="text-3xl">{% if a.state == 'sold_out' %}🎫{% else %}⏳{% endif %}</p>
+        <p class="mt-3 text-lg font-bold {% if a.tone == 'rose' %}text-rose-600 dark:text-rose-400{% elif a.tone == 'amber' %}text-amber-600 dark:text-amber-400{% else %}text-ink-muted{% endif %}">
+          {% if a.state == 'sold_out' %}ALL SOLD OUT{% elif a.state == 'closed' %}SALES CLOSED{% else %}NOT CURRENTLY AVAILABLE{% endif %}
+        </p>
+        <p class="mx-auto mt-1.5 max-w-xs text-sm text-ink-subtle">{{ a.detail }}</p>
+
+        {% if event.outlets.exists %}
+          <details class="mt-5 text-left">
+            <summary class="cursor-pointer text-center text-xs font-medium text-ink-subtle hover:text-brand-600">
+              Show the outlets anyway
+            </summary>
+            <ul class="mt-3 space-y-2">
+              {% for outlet in event.outlets.all %}
+                <li class="flex items-start gap-3 rounded-xl bg-surface-2 p-3 opacity-60">
+                  <span class="text-lg">{{ outlet.icon }}</span>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-ink-muted line-through">{{ outlet.name }}</p>
+                    <p class="text-xs text-ink-subtle">{{ outlet.get_kind_display }}</p>
+                  </div>
+                  <span class="chip bg-rose-500/10 text-rose-600 dark:text-rose-400">Sold out</span>
+                </li>
+              {% endfor %}
+            </ul>
+          </details>
+        {% endif %}
+
+        {% if event.allow_waitlist and a.state == 'sold_out' and not event.has_ended %}
+          <p class="mt-5 text-xs text-ink-subtle">
+            Ask the organizers about returns — <a href="{{ event.organization.get_absolute_url }}" class="link">{{ event.organization.name }}</a>
+          </p>
+        {% endif %}
+      </div>
+
+    {% elif event.outlets.exists %}
+      <ul class="divide-y divide-hairline">
+        {% for outlet in event.outlets.all %}
+          <li class="flex items-start gap-3 px-5 py-4 {% if not outlet.is_available %}opacity-55{% endif %}">
+            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-3 text-base">{{ outlet.icon }}</span>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="font-semibold text-ink {% if not outlet.is_available %}line-through{% endif %}">{{ outlet.name }}</p>
+                {% if outlet.is_available %}
+                  <span class="chip bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Available</span>
+                {% else %}
+                  <span class="chip bg-rose-500/10 text-rose-600 dark:text-rose-400">Sold out</span>
+                {% endif %}
+              </div>
+
+              <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-ink-subtle">{{ outlet.get_kind_display }}</p>
+              {% if outlet.detail %}<p class="mt-1 text-sm text-ink-muted">{{ outlet.detail }}</p>{% endif %}
+              {% if outlet.price_note %}<p class="mt-1 text-sm font-medium text-ink">{{ outlet.price_note }}</p>{% endif %}
+
+              <div class="mt-2 flex flex-wrap gap-3 text-sm">
+                {% if outlet.url and outlet.is_available %}
+                  <a href="{{ outlet.url }}" target="_blank" rel="noopener" class="link">Buy online →</a>
+                {% endif %}
+                {% if outlet.phone %}
+                  <a href="tel:{{ outlet.phone }}" class="link">{{ outlet.phone }}</a>
+                {% endif %}
+              </div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+
+      {% if event.ticket_notes %}
+        <p class="border-t border-hairline bg-surface-2 px-5 py-3 text-xs text-ink-muted">
+          ℹ️ {{ event.ticket_notes }}
+        </p>
+      {% endif %}
+
+    {% else %}
+      <!-- No outlets listed: registration on this site is the only route. -->
+      <div class="px-5 py-6">
+        <div class="flex items-start gap-3">
+          <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-base">🎟️</span>
+          <div>
+            <p class="font-semibold text-ink">Right here on {{ SITE_NAME }}</p>
+            <p class="mt-1 text-sm text-ink-muted">{{ a.detail }}</p>
+            {% if not event.is_free %}
+              <p class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-subtle">
+                Pay with
+                <span class="chip bg-surface-3 text-ink-muted">📱 EcoCash</span>
+                <span class="chip bg-surface-3 text-ink-muted">📲 OneMoney</span>
+                <span class="chip bg-surface-3 text-ink-muted">🏦 InnBucks</span>
+                <span class="chip bg-surface-3 text-ink-muted">💳 Card</span>
+                — secured by Pesepay.
+              </p>
+            {% endif %}
+          </div>
+        </div>
+        {% if event.ticket_notes %}
+          <p class="mt-3 rounded-xl bg-surface-2 px-3 py-2 text-xs text-ink-muted">ℹ️ {{ event.ticket_notes }}</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+{% endwith %}

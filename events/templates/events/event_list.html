@@ -1,0 +1,225 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Explore upcoming events · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <!-- Hero band -->
+  <section class="border-b border-hairline bg-surface">
+    <div class="mx-auto max-w-7xl px-4 py-10 text-center sm:px-6 lg:px-8 lg:py-14">
+      {% if crumbs %}
+        <nav aria-label="Breadcrumb" class="mb-4">
+          <ol class="flex flex-wrap items-center justify-center gap-1.5 text-xs text-ink-subtle">
+            <li><a href="{% url 'core:home' %}" class="transition hover:text-brand-500">Home</a></li>
+            {% for crumb in crumbs %}
+              <li aria-hidden="true" class="opacity-40">/</li>
+              <li><span class="font-medium text-ink-muted">{{ crumb.label }}</span></li>
+            {% endfor %}
+          </ol>
+        </nav>
+      {% endif %}
+
+      <h1 class="font-display text-3xl font-extrabold uppercase leading-tight tracking-tight text-ink text-balance sm:text-4xl lg:text-5xl">
+        {% if selected.q %}
+          Results for “{{ selected.q }}”
+        {% elif selected.show == 'past' %}
+          Past events
+        {% else %}
+          {{ page_title }}
+        {% endif %}
+      </h1>
+      <p class="mx-auto mt-3 max-w-2xl text-base text-ink-subtle">{{ page_subtitle }}</p>
+
+      {% if gig_guide %}
+        <p class="mt-4 text-2xs font-bold uppercase tracking-[0.2em] text-flame-600 dark:text-flame-400">
+          Live music · Open mics · Parties · Film nights
+        </p>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- Tabs -->
+  <div class="sticky top-[57px] z-30 bg-surface/95 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      {% include "partials/_tabs.html" with tabs=tabs %}
+    </div>
+  </div>
+
+  <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <!-- Featured -->
+    {% if featured_events %}
+      <section class="mb-12">
+        <div class="mb-5 flex items-center gap-4">
+          <h2 class="font-display text-xl font-extrabold uppercase tracking-tight text-ink">
+            {% if gig_guide %}Featured Gigs{% else %}Featured Events{% endif %}
+          </h2>
+          <span class="h-px flex-1 bg-hairline"></span>
+          <span class="text-2xs uppercase tracking-widest text-ink-subtle">{{ featured_events|length }} picked</span>
+        </div>
+
+        <!-- Stacked in a single column so each pick gets the full width -->
+        <div class="flex flex-col gap-5">
+          {% for event in featured_events %}
+            {% include "partials/_event_featured.html" %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Filters -->
+    <section class="mb-10">
+      <div class="mb-5 flex items-center gap-4">
+        <h2 class="font-display text-xl font-extrabold uppercase tracking-tight text-ink">Filter Events</h2>
+        <span class="h-px flex-1 bg-hairline"></span>
+        {% if active_filters %}
+          <a href="{% url route %}" class="text-xs font-medium text-brand-500 hover:underline">Clear all</a>
+        {% endif %}
+      </div>
+
+      <div class="card space-y-5 p-5 sm:p-6">
+        <!-- University -->
+        <div>
+          <p class="mb-2.5 text-2xs font-bold uppercase tracking-widest text-ink-subtle">University</p>
+          <div class="no-scrollbar flex flex-wrap gap-2">
+            <a href="?{% if selected.category %}category={{ selected.category }}{% endif %}"
+               class="filter-pill {% if not selected.university %}filter-pill-active{% endif %}">All</a>
+            {% for uni in universities %}
+              <a href="?university={{ uni.slug }}{% if selected.category %}&category={{ selected.category }}{% endif %}"
+                 class="filter-pill {% if selected.university == uni.slug %}filter-pill-active{% endif %}"
+                 title="{{ uni.name }}">{{ uni.short_name|default:uni.name }}</a>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Category -->
+        <div class="border-t border-hairline pt-5">
+          <p class="mb-2.5 text-2xs font-bold uppercase tracking-widest text-ink-subtle">Category</p>
+          <div class="flex flex-wrap gap-2">
+            <a href="?{% if selected.university %}university={{ selected.university }}{% endif %}"
+               class="filter-pill {% if not selected.category %}filter-pill-active{% endif %}">All</a>
+            {% for category in categories %}
+              <a href="?category={{ category.slug }}{% if selected.university %}&university={{ selected.university }}{% endif %}"
+                 class="filter-pill {% if selected.category == category.slug %}filter-pill-active{% endif %}">
+                {{ category.icon }} {{ category.name }}
+                <span class="text-2xs opacity-60">{{ category.event_count }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- When, price and availability -->
+        <div class="grid gap-5 border-t border-hairline pt-5 sm:grid-cols-3">
+          <div>
+            <p class="mb-2.5 text-2xs font-bold uppercase tracking-widest text-ink-subtle">When</p>
+            <div class="flex flex-wrap gap-2">
+              <a href="?when=today" class="filter-pill {% if selected.when == 'today' %}filter-pill-active{% endif %}">Today</a>
+              <a href="?when=week" class="filter-pill {% if selected.when == 'week' %}filter-pill-active{% endif %}">This week</a>
+              <a href="?when=month" class="filter-pill {% if selected.when == 'month' %}filter-pill-active{% endif %}">This month</a>
+            </div>
+          </div>
+
+          <div>
+            <p class="mb-2.5 text-2xs font-bold uppercase tracking-widest text-ink-subtle">Price</p>
+            <div class="flex flex-wrap gap-2">
+              <a href="?price=free" class="filter-pill {% if selected.price == 'free' %}filter-pill-active{% endif %}">Free</a>
+              <a href="?price=paid" class="filter-pill {% if selected.price == 'paid' %}filter-pill-active{% endif %}">Paid</a>
+            </div>
+          </div>
+
+          <div>
+            <p class="mb-2.5 text-2xs font-bold uppercase tracking-widest text-ink-subtle">Tickets</p>
+            <div class="flex flex-wrap gap-2">
+              <a href="?tickets=available" class="filter-pill {% if selected.tickets == 'available' %}filter-pill-active{% endif %}">Available</a>
+              <a href="?show=past" class="filter-pill {% if selected.show == 'past' %}filter-pill-active{% endif %}">Archive</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Free text and ordering -->
+        <form method="get" class="grid gap-3 border-t border-hairline pt-5 sm:grid-cols-[1fr_auto_auto]">
+          {% if selected.university %}<input type="hidden" name="university" value="{{ selected.university }}" />{% endif %}
+          {% if selected.category %}<input type="hidden" name="category" value="{{ selected.category }}" />{% endif %}
+          {% if selected.show == 'past' %}<input type="hidden" name="show" value="past" />{% endif %}
+
+          <input type="search" name="q" value="{{ selected.q }}" placeholder="Search by name, society or venue…"
+                 class="w-full rounded-xl border border-hairline bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25" />
+
+          <select name="sort" class="rounded-xl border border-hairline bg-surface px-4 py-2.5 text-sm text-ink focus:border-brand-500 focus:outline-none">
+            {% for key, option in sort_options.items %}
+              <option value="{{ key }}" {% if selected.sort == key %}selected{% endif %}>{{ option.1 }}</option>
+            {% endfor %}
+          </select>
+
+          <button type="submit" class="btn-primary px-6">Search</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Results -->
+    {% if events %}
+      <section>
+        <h2 class="mb-3 font-display text-xl font-extrabold uppercase tracking-tight text-ink">
+          {% if active_filters %}Matching events{% else %}The listings{% endif %}
+        </h2>
+
+        {% include "partials/_masthead.html" with edition=masthead_edition folio=page_folio %}
+
+        <!-- Set as a ranked column, the way a paper runs a listings page -->
+        <div class="divide-y divide-hairline">
+          {% for event in events %}
+            {% include "partials/_news_row.html" with counter=forloop.counter0|add:number_offset|add:1 %}
+          {% endfor %}
+        </div>
+
+        <div class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-5">
+          <p class="text-sm text-ink-subtle">
+            Showing <strong class="text-ink">{{ range_start }}–{{ range_end }}</strong> of
+            <strong class="text-ink">{{ total_count }}</strong>
+            {% if page_obj.paginator.num_pages > 1 %} · page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}{% endif %}
+          </p>
+          <div class="flex items-center gap-1.5 text-xs text-ink-subtle">
+            <span>Per page</span>
+            {% for size in page_sizes %}
+              <a href="?{% if querystring %}{{ querystring }}&{% endif %}per_page={{ size }}"
+                 class="chip {% if per_page == size %}bg-brand-600 text-white{% else %}bg-surface-3 text-ink-muted hover:bg-surface-3{% endif %}">{{ size }}</a>
+            {% endfor %}
+          </div>
+        </div>
+
+        {% include "partials/_pagination.html" %}
+      </section>
+
+      <!-- Selling fastest -->
+      {% if selling_fast and is_front %}
+        <section class="mt-14">
+          <div class="mb-5 flex items-center gap-4">
+            <h2 class="font-display text-xl font-extrabold uppercase tracking-tight text-ink">Selling Fastest</h2>
+            <span class="h-px flex-1 bg-hairline"></span>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {% for event in selling_fast %}
+              <a href="{{ event.get_absolute_url }}" class="card card-hover p-4">
+                <p class="line-clamp-2 text-sm font-semibold text-ink">{{ event.title }}</p>
+                <p class="mt-1 truncate text-xs text-ink-subtle">{{ event.organization.name }}</p>
+                <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-3">
+                  <div class="h-full rounded-full {% if event.fill_percentage >= 90 %}bg-rose-500{% elif event.fill_percentage >= 70 %}bg-amber-500{% else %}bg-emerald-500{% endif %}"
+                       style="width: {{ event.fill_percentage }}%"></div>
+                </div>
+                <p class="mt-1.5 text-2xs text-ink-subtle">{{ event.fill_percentage }}% gone · {{ event.seats_left }} left</p>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+    {% else %}
+      <div class="card px-6 py-16 text-center">
+        <p class="text-4xl">🔍</p>
+        <h3 class="mt-4 text-lg font-semibold text-ink">No events match that</h3>
+        <p class="mx-auto mt-1 max-w-sm text-sm text-ink-subtle">
+          Try widening your filters, or check back — societies add new events every week.
+        </p>
+        <a href="{% url route %}" class="btn-secondary mt-6">Reset filters</a>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

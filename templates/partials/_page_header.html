@@ -1,0 +1,66 @@
+{% comment %}
+The standard top of an interior page, so every one reads the same way:
+
+    breadcrumb  →  title  →  one line of subtitle  →  actions on the right
+
+Include it with:
+
+    {% include "partials/_page_header.html" with
+        title="Browse events"
+        subtitle="Everything coming up across Zimbabwe."
+        crumbs=crumbs
+        actions=actions %}
+
+`crumbs`  — list of {label, url}; the last one usually has no url.
+`actions` — list of {label, url, style}; style is primary | secondary | ghost.
+Anything more involved than a link (a POST, a confirm) stays in the page itself.
+{% endcomment %}
+<div class="border-b border-hairline bg-surface">
+  <div class="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
+    {% if crumbs %}
+      <nav aria-label="Breadcrumb" class="mb-2.5">
+        <ol class="flex flex-wrap items-center gap-1.5 text-xs text-ink-subtle">
+          <li><a href="{% url 'core:home' %}" class="transition hover:text-brand-500">Home</a></li>
+          {% for crumb in crumbs %}
+            <li aria-hidden="true" class="opacity-40">/</li>
+            <li>
+              {% if crumb.url %}
+                <a href="{{ crumb.url }}" class="transition hover:text-brand-500">{{ crumb.label }}</a>
+              {% else %}
+                <span class="font-medium text-ink-muted">{{ crumb.label }}</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+      </nav>
+    {% endif %}
+
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div class="min-w-0">
+        {% if eyebrow %}
+          <span class="chip bg-brand-500/10 text-brand-600 dark:text-brand-400">{{ eyebrow }}</span>
+        {% endif %}
+        <h1 class="{% if eyebrow %}mt-2 {% endif %}font-display text-2xl font-extrabold tracking-tightest text-ink sm:text-3xl">
+          {{ title }}
+        </h1>
+        {% if subtitle %}
+          <p class="mt-1.5 max-w-2xl text-sm text-ink-subtle">{{ subtitle }}</p>
+        {% endif %}
+      </div>
+
+      {% if actions %}
+        <div class="flex flex-wrap items-center gap-2">
+          {% for action in actions %}
+            <a href="{{ action.url }}"
+               class="{% if action.style == 'primary' %}btn-primary{% elif action.style == 'ghost' %}btn-ghost{% else %}btn-secondary{% endif %}">
+              {{ action.label }}
+              {% if action.badge %}
+                <span class="chip bg-amber-500/15 text-amber-600 dark:text-amber-400">{{ action.badge }}</span>
+              {% endif %}
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>

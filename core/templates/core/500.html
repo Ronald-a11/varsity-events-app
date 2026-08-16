@@ -1,0 +1,12 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Something went wrong · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-md px-4 py-24 text-center sm:px-6">
+    <p class="text-6xl font-extrabold text-rose-600">500</p>
+    <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-ink">Something broke on our side</h1>
+    <p class="mt-2 text-sm text-ink-subtle">It's not you. Try again in a moment — we've been notified.</p>
+    <a href="{% url 'core:home' %}" class="btn-primary mt-8">Back to safety</a>
+  </div>
+{% endblock %}

@@ -1,0 +1,306 @@
+﻿{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}{{ SITE_NAME }} — {{ SITE_TAGLINE }}{% endblock %}
+
+{% block content %}
+  <!-- Hero -->
+  <section class="relative overflow-hidden bg-brand-950">
+    <div class="absolute inset-0 bg-mesh-brand"></div>
+    <div class="absolute inset-0 bg-grid-faint bg-grid opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"></div>
+    <div class="absolute -right-32 -top-32 h-[28rem] w-[28rem] animate-float-slow rounded-full bg-brand-500/25 blur-3xl"></div>
+    <div class="absolute -bottom-40 -left-24 h-[26rem] w-[26rem] rounded-full bg-azure-500/25 blur-3xl"></div>
+
+    <div class="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+      <div class="max-w-2xl">
+        <span class="chip animate-fade-up bg-white/10 text-white ring-1 ring-inset ring-white/20 backdrop-blur">
+          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span>
+          🇿🇼 {{ stats.universities }} universities · {{ stats.societies }} societies · {{ stats.events }} events
+        </span>
+
+        <h1 class="mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tightest text-white text-balance sm:text-6xl lg:text-7xl">
+          Every university event<br />in Zimbabwe,
+          <span class="text-gradient">one place.</span>
+        </h1>
+
+        <p class="mt-6 max-w-xl text-lg leading-relaxed text-brand-100/90">
+          Campus events live in WhatsApp groups, faded notice-board posters and statuses that
+          expire in 24 hours. {{ SITE_NAME }} puts them all on one page — searchable, ticketed,
+          and honest about whether tickets are still going.
+        </p>
+
+        <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+          <a href="{% url 'accounts:register' %}" class="btn bg-white px-7 py-3.5 text-base text-brand-800 shadow-2xl hover:bg-brand-50">
+            Create a free account
+          </a>
+          <a href="{% url 'events:list' %}" class="btn border border-white/25 px-7 py-3.5 text-base text-white backdrop-blur transition hover:bg-white/10">
+            Browse events first
+          </a>
+        </div>
+
+        <p class="mt-4 text-sm text-brand-100/70">
+          Free for every student. Sign in and your feed fills with what's on this week.
+        </p>
+      </div>
+    </div>
+
+    <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-surface-2 to-transparent"></div>
+  </section>
+
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <!-- What it is -->
+    <section class="pt-16">
+      <div class="mx-auto max-w-2xl text-center">
+        <span class="chip bg-brand-500/10 text-brand-600 dark:text-brand-400">What it is</span>
+        <h2 class="mt-4 font-display text-3xl font-extrabold tracking-tightest text-ink sm:text-4xl text-balance">
+          A single calendar for every campus in the country
+        </h2>
+        <p class="mt-4 text-lg leading-relaxed text-ink-subtle">
+          Societies publish once. Students at UZ, NUST, MSU, CUT, GZU and thirteen more see it
+          instantly — with a ticket, a QR code and directions to the door.
+        </p>
+      </div>
+
+      <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <article class="card p-6 reveal">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-500/10 text-xl">🔎</span>
+          <h3 class="mt-4 font-display text-lg font-bold text-ink">Find it in seconds</h3>
+          <p class="mt-2 text-sm leading-relaxed text-ink-subtle">
+            Filter by university, category, date or price. Hit <kbd class="rounded border border-hairline bg-surface-3 px-1.5 py-0.5 text-2xs">⌘K</kbd>
+            anywhere to search across events, societies and universities at once.
+          </p>
+        </article>
+
+        <article class="card p-6 reveal">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-azure-500/10 text-xl">🎟️</span>
+          <h3 class="mt-4 font-display text-lg font-bold text-ink">Know before you go</h3>
+          <p class="mt-2 text-sm leading-relaxed text-ink-subtle">
+            Every event says exactly where tickets are sold and whether each outlet still has
+            stock. Sold out is marked <strong class="text-ink">SOLD OUT</strong> — no wasted trips
+            across town.
+          </p>
+        </article>
+
+        <article class="card p-6 reveal">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-xl">📱</span>
+          <h3 class="mt-4 font-display text-lg font-bold text-ink">Pay with EcoCash</h3>
+          <p class="mt-2 text-sm leading-relaxed text-ink-subtle">
+            Send the money straight from your phone, or pay by card through Pesepay. Your ticket
+            confirms itself the moment the payment clears.
+          </p>
+        </article>
+
+        <article class="card p-6 reveal">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-xl">⏳</span>
+          <h3 class="mt-4 font-display text-lg font-bold text-ink">Waitlists that work</h3>
+          <p class="mt-2 text-sm leading-relaxed text-ink-subtle">
+            Event full? Join the waitlist and you're promoted automatically the moment someone
+            drops out — no refreshing, no asking around.
+          </p>
+        </article>
+
+        <article class="card p-6 reveal">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/10 text-xl">📊</span>
+          <h3 class="mt-4 font-display text-lg font-bold text-ink">Real tools for societies</h3>
+          <p class="mt-2 text-sm leading-relaxed text-ink-subtle">
+            Live sign-up counts, a door check-in desk that catches duplicate tickets, announcements,
+            and a CSV of your attendees when it's over.
+          </p>
+        </article>
+
+        <article class="card p-6 reveal">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-xl">📡</span>
+          <h3 class="mt-4 font-display text-lg font-bold text-ink">See the momentum</h3>
+          <p class="mt-2 text-sm leading-relaxed text-ink-subtle">
+            Every event page shows recent sign-ups and how fast tickets are moving, so you know
+            whether to book now or think about it.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="pt-20">
+      <div class="grid gap-10 lg:grid-cols-2 lg:gap-16">
+        <div>
+          <span class="chip bg-brand-500/10 text-brand-600 dark:text-brand-400">For students</span>
+          <h2 class="mt-4 font-display text-2xl font-extrabold tracking-tightest text-ink sm:text-3xl">
+            Three taps from bored to booked
+          </h2>
+
+          <ol class="mt-8 space-y-6">
+            <li class="flex gap-4">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">1</span>
+              <div>
+                <h3 class="font-semibold text-ink">Tell us your university</h3>
+                <p class="mt-1 text-sm leading-relaxed text-ink-subtle">
+                  Sign up free and pick your campus and interests. Takes about thirty seconds.
+                </p>
+              </div>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">2</span>
+              <div>
+                <h3 class="font-semibold text-ink">Your feed fills up</h3>
+                <p class="mt-1 text-sm leading-relaxed text-ink-subtle">
+                  Your own campus first, then everything else happening nationwide — sorted by
+                  what's on soonest.
+                </p>
+              </div>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">3</span>
+              <div>
+                <h3 class="font-semibold text-ink">Grab your ticket</h3>
+                <p class="mt-1 text-sm leading-relaxed text-ink-subtle">
+                  Free events issue instantly. Paid ones take EcoCash or card, and the QR code
+                  lands in your account.
+                </p>
+              </div>
+            </li>
+          </ol>
+
+          <a href="{% url 'accounts:register' %}" class="btn-primary mt-8">Get started free</a>
+        </div>
+
+        <div>
+          <span class="chip bg-azure-500/10 text-azure-600 dark:text-azure-400">For societies</span>
+          <h2 class="mt-4 font-display text-2xl font-extrabold tracking-tightest text-ink sm:text-3xl">
+            Run the whole event from one page
+          </h2>
+
+          <ol class="mt-8 space-y-6">
+            <li class="flex gap-4">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-azure-600 text-sm font-bold text-white">1</span>
+              <div>
+                <h3 class="font-semibold text-ink">Register your society</h3>
+                <p class="mt-1 text-sm leading-relaxed text-ink-subtle">
+                  Once, free. Add your committee, get verified, and you can publish immediately.
+                </p>
+              </div>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-azure-600 text-sm font-bold text-white">2</span>
+              <div>
+                <h3 class="font-semibold text-ink">Publish and take money</h3>
+                <p class="mt-1 text-sm leading-relaxed text-ink-subtle">
+                  Set capacity, pricing and where tickets are sold. Payments land in your EcoCash
+                  wallet directly.
+                </p>
+              </div>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-azure-600 text-sm font-bold text-white">3</span>
+              <div>
+                <h3 class="font-semibold text-ink">Scan them in at the door</h3>
+                <p class="mt-1 text-sm leading-relaxed text-ink-subtle">
+                  The check-in desk flags duplicates and cancelled tickets, then exports your
+                  turnout when it's done.
+                </p>
+              </div>
+            </li>
+          </ol>
+
+          <a href="{% url 'organizations:create' %}" class="btn-secondary mt-8">Register a society</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Universities -->
+    {% if universities %}
+      <section class="pt-20">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <h2 class="section-title">Every university on the platform</h2>
+            <p class="section-sub">Pick yours and see what's on this week.</p>
+          </div>
+        </div>
+        <div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {% for uni in universities %}
+            <a href="{% url 'events:list' %}?university={{ uni.slug }}"
+               class="card card-hover flex items-center gap-3 p-4 reveal">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-xs font-extrabold text-brand-600 dark:text-brand-400">
+                {{ uni.short_name|default:"UNI" }}
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate font-semibold text-ink">{{ uni.name }}</span>
+                <span class="block truncate text-xs text-ink-subtle">{{ uni.city }}{% if uni.city and uni.province %}, {% endif %}{{ uni.province }}</span>
+              </span>
+              <span class="shrink-0 rounded-lg bg-surface-3 px-2 py-1 text-xs font-semibold text-ink-muted">{{ uni.event_count }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Payments -->
+    <section class="pt-20">
+      <div class="card overflow-hidden">
+        <div class="grid items-center gap-8 p-8 lg:grid-cols-2 lg:p-10">
+          <div>
+            <span class="chip bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Payments</span>
+            <h2 class="mt-4 font-display text-2xl font-extrabold tracking-tightest text-ink sm:text-3xl">
+              Pay the way Zimbabwe actually pays
+            </h2>
+            <p class="mt-4 leading-relaxed text-ink-subtle">
+              Send EcoCash straight from your handset and enter the confirmation code, or pay by
+              card, Zimswitch{% for wallet in wallets_accepted %}, {{ wallet }}{% endfor %}
+              through Pesepay. Your seat is held for you while you pay, and the ticket activates
+              itself the moment the money clears.
+            </p>
+            <div class="mt-6 flex flex-wrap gap-2">
+              {% for wallet in wallets_accepted %}
+                <span class="chip-neutral">{% if wallet == 'EcoCash' %}📱{% elif wallet == 'OneMoney' %}📲{% else %}🏦{% endif %} {{ wallet }}</span>
+              {% endfor %}
+              <span class="chip-neutral">💳 Card &amp; Zimswitch</span>
+            </div>
+          </div>
+
+          <dl class="grid grid-cols-2 gap-4">
+            <div class="stat-card p-5 text-center">
+              <dt class="text-2xs uppercase tracking-widest text-ink-subtle">Universities</dt>
+              <dd class="mt-1 font-display text-3xl font-extrabold text-ink">{{ stats.universities }}</dd>
+            </div>
+            <div class="stat-card p-5 text-center">
+              <dt class="text-2xs uppercase tracking-widest text-ink-subtle">Societies</dt>
+              <dd class="mt-1 font-display text-3xl font-extrabold text-ink">{{ stats.societies }}</dd>
+            </div>
+            <div class="stat-card p-5 text-center">
+              <dt class="text-2xs uppercase tracking-widest text-ink-subtle">Events listed</dt>
+              <dd class="mt-1 font-display text-3xl font-extrabold text-ink">{{ stats.events|intcomma }}</dd>
+            </div>
+            <div class="stat-card p-5 text-center">
+              <dt class="text-2xs uppercase tracking-widest text-ink-subtle">Tickets issued</dt>
+              <dd class="mt-1 font-display text-3xl font-extrabold text-brand-600 dark:text-brand-400">{{ stats.tickets|intcomma }}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="py-20">
+      <div class="relative overflow-hidden rounded-3xl bg-brand-950 px-6 py-14 text-center sm:px-12">
+        <div class="absolute inset-0 bg-mesh-brand opacity-80"></div>
+        <div class="absolute inset-0 bg-grid-faint bg-grid opacity-30"></div>
+
+        <div class="relative mx-auto max-w-2xl">
+          <h2 class="font-display text-3xl font-extrabold tracking-tightest text-white sm:text-4xl text-balance">
+            Stop finding out the day after.
+          </h2>
+          <p class="mt-4 text-lg text-brand-100/90">
+            Free account, thirty seconds, every campus in Zimbabwe.
+          </p>
+          <div class="mt-8 flex flex-wrap justify-center gap-3">
+            <a href="{% url 'accounts:register' %}" class="btn bg-white px-7 py-3.5 text-base text-brand-800 shadow-2xl hover:bg-brand-50">
+              Create your account
+            </a>
+            <a href="{% url 'accounts:login' %}" class="btn border border-white/25 px-7 py-3.5 text-base text-white hover:bg-white/10">
+              I already have one
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+{% endblock %}

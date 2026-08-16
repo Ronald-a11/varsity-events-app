@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+.env
+
+# Node / Tailwind
+node_modules/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Never commit real credentials. .env holds the live Pesepay keys; on Railway
+# the same values are set as service variables instead.
+.env
+.env.*
+!.env.example

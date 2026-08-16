@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Sign in · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto flex max-w-md flex-col justify-center px-4 py-16 sm:px-6">
+    <div class="text-center">
+      <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-azure-600 text-xl font-bold text-white shadow-lift">V</span>
+      <h1 class="mt-5 font-display text-2xl font-extrabold tracking-tightest text-ink">Welcome back</h1>
+      <p class="mt-1 text-sm text-ink-subtle">Sign in to grab tickets and manage your events.</p>
+    </div>
+
+    <div class="card mt-8 p-6">
+      {% if form.non_field_errors %}
+        <div class="mb-5 flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-600 dark:text-rose-400">
+          <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+          <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        </div>
+      {% endif %}
+
+      <form method="post" class="space-y-5" novalidate
+            data-auth-form data-busy-label="Signing you in…" data-label="Sign in">
+        {% csrf_token %}
+        {% include "partials/_field.html" with field=form.username %}
+        {% include "partials/_field.html" with field=form.password %}
+
+        <div class="flex items-center justify-between gap-3">
+          <label class="flex cursor-pointer items-center gap-2 text-sm text-ink-muted">
+            {{ form.remember_me }}
+            <span>{{ form.remember_me.label }}</span>
+          </label>
+        </div>
+
+        <input type="hidden" name="next" value="{{ next }}" />
+        <button type="submit" class="btn-primary w-full py-3">Sign in</button>
+      </form>
+
+      <p class="mt-5 text-center text-xs text-ink-subtle">
+        You can sign in with your username <em>or</em> your email address.
+      </p>
+    </div>
+
+    <p class="mt-6 text-center text-sm text-ink-subtle">
+      New to {{ SITE_NAME }}? <a href="{% url 'accounts:register' %}" class="link">Create a free account</a>
+    </p>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  {% include "partials/_auth_scripts.html" %}
+{% endblock %}

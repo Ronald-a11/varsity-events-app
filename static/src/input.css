@@ -1,0 +1,322 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------
+   Design tokens. One set of variables drives both themes, so a single
+   `dark` class on <html> re-skins every surface in the app.
+------------------------------------------------------------------ */
+@layer base {
+  /* Light: the off-white page from the design, cards a shade brighter, neutrals
+     carrying a trace of the indigo so nothing looks grey next to the header. */
+  :root {
+    --surface: 255 255 253;
+    --surface-2: 245 245 241;
+    --surface-3: 235 236 242;
+    --ink: 26 27 51;
+    --ink-muted: 74 78 105;
+    --ink-subtle: 116 120 143;
+    --hairline: 221 222 230;
+    --shadow-strength: 1;
+  }
+
+  /* Dark: the same indigo night as the header. */
+  .dark {
+    --surface: 27 28 56;
+    --surface-2: 17 18 38;
+    --surface-3: 38 40 74;
+    --ink: 240 241 250;
+    --ink-muted: 163 167 196;
+    --ink-subtle: 124 129 160;
+    --hairline: 52 55 96;
+    --shadow-strength: 0.4;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    @apply bg-surface-2 text-ink-muted antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display text-ink;
+    letter-spacing: -0.025em;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500/60 ring-offset-2;
+    --tw-ring-offset-color: rgb(var(--surface));
+  }
+
+  ::selection {
+    @apply bg-brand-500/25;
+  }
+
+  /* Scrollbar that doesn't fight the dark theme */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgb(var(--surface-2));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--hairline));
+    border-radius: 9999px;
+    border: 2px solid rgb(var(--surface-2));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--ink-subtle) / 0.6);
+  }
+}
+
+@layer components {
+  /* --- buttons ---------------------------------------------------- */
+  .btn {
+    @apply relative inline-flex select-none items-center justify-center gap-2 rounded-xl px-4 py-2.5
+           text-sm font-semibold transition duration-200 ease-spring
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+           active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+    --tw-ring-offset-color: rgb(var(--surface));
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-600 text-white shadow-sm
+           hover:bg-brand-500 hover:shadow-lift focus-visible:ring-brand-500;
+  }
+
+  .btn-secondary {
+    @apply btn border border-hairline bg-surface text-ink shadow-sm
+           hover:border-brand-400/60 hover:bg-surface-3 focus-visible:ring-brand-500;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink-muted hover:bg-surface-3 hover:text-ink;
+  }
+
+  .btn-danger {
+    @apply btn bg-rose-600 text-white shadow-sm hover:bg-rose-500 focus-visible:ring-rose-500;
+  }
+
+  .btn-sm {
+    @apply gap-1.5 px-3 py-1.5 text-xs;
+  }
+
+  /* --- surfaces --------------------------------------------------- */
+  .card {
+    @apply rounded-2xl border border-hairline bg-surface shadow-card
+           transition duration-300 ease-spring;
+  }
+
+  .card-hover {
+    @apply hover:-translate-y-1 hover:border-brand-400/40 hover:shadow-lift;
+  }
+
+  /* Frosted panel used for the nav and the command palette */
+  .glass {
+    @apply border-hairline bg-surface/80 backdrop-blur-xl backdrop-saturate-150;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  /* --- header (always dark, in both themes) ----------------------- */
+  .nav-link {
+    @apply rounded-xl px-3 py-2 text-sm font-medium text-white/70 transition
+           hover:bg-white/10 hover:text-white;
+  }
+
+  .nav-link-active {
+    @apply bg-white/15 text-white;
+  }
+
+  .nav-icon {
+    @apply rounded-lg p-2 text-white/60 transition hover:bg-white/10 hover:text-white;
+  }
+
+  /* The one bright call to action in the header — the teal from the design */
+  .nav-cta {
+    @apply btn bg-teal-500 px-4 py-2 text-sm font-semibold text-white shadow-lg
+           hover:bg-teal-400 focus-visible:ring-teal-400;
+  }
+
+  /* Filter pills on the events page */
+  .filter-pill {
+    @apply inline-flex shrink-0 items-center gap-1.5 rounded-full border border-hairline
+           bg-surface px-3.5 py-1.5 text-sm font-medium text-ink-muted transition
+           hover:border-brand-400/60 hover:text-ink;
+  }
+
+  .filter-pill-active {
+    @apply border-transparent bg-brand-600 text-white shadow-sm hover:bg-brand-500 hover:text-white;
+  }
+
+  .chip-neutral {
+    @apply chip bg-surface-3 text-ink-muted;
+  }
+
+  /* --- forms ------------------------------------------------------ */
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+
+  .help {
+    @apply mt-1.5 text-xs text-ink-subtle;
+  }
+
+  .field-error {
+    @apply mt-1.5 flex items-center gap-1 text-xs font-medium text-rose-500;
+  }
+
+  /* --- typography ------------------------------------------------- */
+  .section-title {
+    @apply font-display text-xl font-bold tracking-tightest text-ink sm:text-2xl;
+  }
+
+  .section-sub {
+    @apply mt-1 text-sm text-ink-subtle;
+  }
+
+  .link {
+    @apply font-medium text-brand-500 underline-offset-4 transition hover:text-brand-400 hover:underline;
+  }
+
+  .prose-body p {
+    @apply mb-4 leading-relaxed text-ink-muted;
+  }
+
+  /* --- data display ----------------------------------------------- */
+  .table-shell {
+    @apply overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card;
+  }
+
+  .table-head {
+    @apply bg-surface-3 text-left text-2xs uppercase tracking-widest text-ink-subtle;
+  }
+
+  .stat-card {
+    @apply card relative overflow-hidden p-5;
+  }
+
+  /* A thin glaze rail that gives stat tiles some presence */
+  .stat-card::before {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-500/60 to-azure-500/50;
+  }
+
+  /* --- loading ---------------------------------------------------- */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-surface-3;
+  }
+
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-shimmer;
+  }
+
+  /* Spinner used inside buttons and beside inline async work */
+  .spinner {
+    @apply inline-block shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent;
+    width: 1em;
+    height: 1em;
+  }
+
+  /* Numbered steps in the wallet-push waiting room */
+  .step-dot {
+    @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-full border
+           border-hairline bg-surface-3 text-xs font-bold text-ink-subtle
+           transition duration-300;
+  }
+
+  .step-dot-active {
+    @apply border-transparent bg-brand-600 text-white ring-4 ring-brand-500/20;
+  }
+
+  .step-dot-done {
+    @apply border-transparent bg-emerald-600 text-white ring-0;
+  }
+
+  /* A button mid-request: swap the label for a spinner without the width jumping */
+  .btn[data-loading="true"] {
+    @apply pointer-events-none relative text-transparent;
+  }
+
+  .btn[data-loading="true"]::after {
+    content: "";
+    @apply absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2
+           animate-spin rounded-full border-2 border-white border-r-transparent;
+  }
+
+  .btn-secondary[data-loading="true"]::after,
+  .btn-ghost[data-loading="true"]::after {
+    @apply border-brand-500 border-r-transparent;
+  }
+
+  /* Any block waiting on data */
+  .is-loading {
+    @apply pointer-events-none animate-pulse opacity-60;
+  }
+
+  /* Images fade in once decoded instead of snapping into place */
+  .img-fade {
+    @apply opacity-0 transition-opacity duration-500;
+  }
+
+  .img-fade.is-loaded {
+    @apply opacity-100;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Reveal-on-scroll: elements start hidden and are released by an observer. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-br from-white via-flame-200 to-flame-400 bg-clip-text text-transparent;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}

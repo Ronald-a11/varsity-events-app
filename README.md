@@ -471,11 +471,23 @@ railway run python manage.py createsuperuser
 
 ### Uploaded images
 
-Posters and society logos are written to `MEDIA_ROOT`, which is ephemeral by default — they
-survive until the next deploy. For anything beyond a demo, mount a Railway volume and point
-`DJANGO_MEDIA_ROOT` at it, or move to object storage. Django serves media itself
-(`DJANGO_SERVE_MEDIA`, on by default) since there's no separate web server in front of it;
-that's fine at campus scale and wants a CDN beyond it.
+Posters and society logos are written to `MEDIA_ROOT`, which is **ephemeral unless you mount a
+volume** — otherwise every image disappears on the next deploy while the database still points
+at it, and the site fills with broken thumbnails.
+
+```bash
+railway volume add --mount-path /data
+```
+
+Then set `DJANGO_MEDIA_ROOT=/data/media`. Two things are worth knowing, both learned the hard way:
+
+- **The pre-deploy container does not mount the volume.** Running `seed_demo` there generates
+  images onto a filesystem that is thrown away. Seed the database there if you like, but push
+  the files separately: `railway volume files upload media /media --overwrite`.
+- Django serves media itself (`DJANGO_SERVE_MEDIA`, on by default), because there is no
+  separate web server in front of it. Note that `django.conf.urls.static.static()` **silently
+  returns an empty list when `DEBUG` is False**, so `varsity/urls.py` wires the route by hand.
+  That's fine at campus scale and wants a CDN beyond it.
 
 ### Other notes for production
 

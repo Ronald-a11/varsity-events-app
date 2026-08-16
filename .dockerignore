@@ -1,0 +1,21 @@
+# Keep the build context small and never ship local secrets or state.
+.env
+.env.*
+!.env.example
+db.sqlite3
+media/
+staticfiles/
+
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+node_modules/
+.git/
+.github/
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

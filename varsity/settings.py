@@ -35,8 +35,14 @@ CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 # without having to hard-code a host that changes on every environment.
 RAILWAY_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 if RAILWAY_DOMAIN:
-    if RAILWAY_DOMAIN not in ALLOWED_HOSTS:
-        ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
+    # The platform's own health check probes the container from an internal
+    # host, not the public domain, and Django answers a 400 to any Host it
+    # doesn't know — which reads as "unhealthy" and rolls the deploy back.
+    # The wildcard covers both, and only ever matches Railway's own domains.
+    for host in (RAILWAY_DOMAIN, ".railway.app", "healthcheck.railway.app"):
+        if host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(host)
+
     railway_origin = f"https://{RAILWAY_DOMAIN}"
     if railway_origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(railway_origin)
@@ -267,6 +273,10 @@ ECOCASH_DIRECT_HOLD_MINUTES = int(os.getenv("ECOCASH_DIRECT_HOLD_MINUTES", "120"
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", True)
+    # The load balancer probes the container directly over plain HTTP, with no
+    # X-Forwarded-Proto to mark it as secure — so it would be met with a 301 and
+    # read as unhealthy. Nothing sensitive is behind this path.
+    SECURE_REDIRECT_EXEMPT = [r"^healthz$"]
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30

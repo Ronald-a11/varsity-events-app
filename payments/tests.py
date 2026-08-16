@@ -786,7 +786,7 @@ class CheckoutViewTests(PaymentTestCase):
         self.assertIn(payment.registration.ticket_code, payload["ticket_url"])
 
 
-@override_settings(ECOCASH_MERCHANT_NUMBER="0771938039", ECOCASH_DIRECT_ENABLED=True)
+@override_settings(ECOCASH_MERCHANT_NUMBER="0771234567", ECOCASH_DIRECT_ENABLED=True)
 class EcoCashDirectTests(PaymentTestCase):
     """Money sent straight to the merchant wallet, confirmed by a human."""
 
@@ -805,7 +805,7 @@ class EcoCashDirectTests(PaymentTestCase):
 
         response = self.client.get(reverse("payments:checkout", args=[self.event.slug]))
 
-        self.assertContains(response, "0771938039")
+        self.assertContains(response, "0771234567")
         self.assertContains(response, "send straight to us")
 
     def test_choosing_direct_waits_for_the_transfer(self):
@@ -814,7 +814,7 @@ class EcoCashDirectTests(PaymentTestCase):
         self.assertEqual(payment.status, Payment.Status.AWAITING_TRANSFER)
         self.assertTrue(payment.is_manual)
         self.assertTrue(payment.is_open)
-        self.assertIn("0771938039", payment.instructions)
+        self.assertIn("0771234567", payment.instructions)
 
     def test_direct_transfers_get_a_longer_seat_hold(self):
         payment = self.start_transfer()
@@ -834,7 +834,7 @@ class EcoCashDirectTests(PaymentTestCase):
 
         response = self.client.get(reverse("payments:transfer", args=[payment.reference]))
 
-        self.assertContains(response, "0771938039")
+        self.assertContains(response, "0771234567")
         self.assertContains(response, "*151#")
         self.assertContains(response, payment.reference)
 

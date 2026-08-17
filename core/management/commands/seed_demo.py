@@ -915,6 +915,18 @@ class Command(BaseCommand):
         self.stdout.write(f"Announcements: {made}")
 
     def _create_admin(self, universities):
+        # A superuser whose password is published in this file is a convenience
+        # locally and a way in anywhere else. Deployments make their own with
+        # `createsuperuser`; this one never leaves a developer's machine.
+        if not settings.DEBUG:
+            self.stdout.write(
+                self.style.WARNING(
+                    "Skipped the demo 'admin' superuser: DEBUG is off, so this "
+                    "looks like a real deployment. Use createsuperuser instead."
+                )
+            )
+            return
+
         if not User.objects.filter(username="admin").exists():
             User.objects.create_superuser(
                 username="admin",
@@ -925,4 +937,4 @@ class Command(BaseCommand):
                 role=User.Role.STAFF,
                 university=universities["UZ"],
             )
-            self.stdout.write("Superuser 'admin' created.")
+            self.stdout.write("Superuser 'admin' created (development only).")

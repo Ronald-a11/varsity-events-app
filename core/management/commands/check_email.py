@@ -47,6 +47,18 @@ class Command(BaseCommand):
             )
             return
 
+        # Django's SMTP backend only calls login() when it has BOTH a username
+        # and a password. With one missing it opens the socket, authenticates
+        # nothing, and looks perfectly healthy — then every real send is
+        # rejected. Catch that here rather than in production.
+        if settings.EMAIL_HOST_USER and not settings.EMAIL_HOST_PASSWORD:
+            self.stdout.write("")
+            raise CommandError(
+                "EMAIL_HOST_USER is set but EMAIL_HOST_PASSWORD is empty. Opening a "
+                "connection would succeed without ever logging in, so this is a "
+                "failure, not a pass. Set the password and run this again."
+            )
+
         self.stdout.write("")
         self.stdout.write(self.style.MIGRATE_HEADING("Connection"))
 
@@ -55,10 +67,17 @@ class Command(BaseCommand):
             connection.open()
             connection.close()
         except Exception as exc:  # noqa: BLE001 — surface whatever the server said
-            self._line("Reach the mail server", False, str(exc))
-            raise CommandError("Could not connect. Check the host, port and credentials.")
+            self._line("Authenticate with the mail server", False, str(exc))
+            raise CommandError(
+                "Could not log in. Check the host, port and credentials — for Gmail "
+                "this must be a 16-character App Password, not your account password."
+            )
 
-        self._line("Reach the mail server", True, f"connected to {settings.EMAIL_HOST}")
+        self._line(
+            "Authenticate with the mail server",
+            True,
+            f"logged in to {settings.EMAIL_HOST} as {settings.EMAIL_HOST_USER}",
+        )
 
         recipient = options.get("to")
         if not recipient:

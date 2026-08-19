@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from accounts.models import University, User
 from organizations.models import Membership, Organization
+from varsity.testing import login_verified
 
 from .models import Bookmark, Category, Event, Registration, TicketOutlet, TicketStatus
 
@@ -593,14 +594,14 @@ class StaffCurationTests(EventTestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_staff_see_every_event_nationwide(self):
-        self.client.force_login(self.staff)
+        login_verified(self.client, self.staff)
         response = self.client.get(reverse("core:staff_dashboard"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Test Hackathon")
 
     def test_staff_can_pick_and_unpick_an_event(self):
-        self.client.force_login(self.staff)
+        login_verified(self.client, self.staff)
 
         self.client.post(reverse("core:staff_event_action", args=[self.event.slug, "pick"]))
         self.event.refresh_from_db()
@@ -611,7 +612,7 @@ class StaffCurationTests(EventTestCase):
         self.assertFalse(self.event.is_featured)
 
     def test_staff_can_mark_an_event_sold_out(self):
-        self.client.force_login(self.staff)
+        login_verified(self.client, self.staff)
         self.client.post(reverse("core:staff_event_action", args=[self.event.slug, "sold_out"]))
 
         self.event.refresh_from_db()
@@ -619,28 +620,28 @@ class StaffCurationTests(EventTestCase):
         self.assertEqual(self.event.availability["state"], "sold_out")
 
     def test_staff_can_pull_an_event_offline(self):
-        self.client.force_login(self.staff)
+        login_verified(self.client, self.staff)
         self.client.post(reverse("core:staff_event_action", args=[self.event.slug, "unpublish"]))
 
         self.event.refresh_from_db()
         self.assertEqual(self.event.status, Event.Status.DRAFT)
 
     def test_staff_can_verify_a_society(self):
-        self.client.force_login(self.staff)
+        login_verified(self.client, self.staff)
         self.client.post(reverse("core:staff_society_action", args=[self.org.slug, "verify"]))
 
         self.org.refresh_from_db()
         self.assertTrue(self.org.is_verified)
 
     def test_staff_can_suspend_a_society(self):
-        self.client.force_login(self.staff)
+        login_verified(self.client, self.staff)
         self.client.post(reverse("core:staff_society_action", args=[self.org.slug, "suspend"]))
 
         self.org.refresh_from_db()
         self.assertFalse(self.org.is_active)
 
     def test_society_admin_page_renders(self):
-        self.client.force_login(self.staff)
+        login_verified(self.client, self.staff)
         self.assertEqual(self.client.get(reverse("core:staff_societies")).status_code, 200)
 
 

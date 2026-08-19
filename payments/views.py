@@ -11,6 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
+from accounts.twofactor import requires_second_factor
 from events.models import Event, Registration
 
 from django.conf import settings
@@ -359,7 +360,9 @@ def transfer(request, reference):
     )
 
 
-@login_required
+# Marking a transfer verified releases a ticket against money somebody says
+# they sent. It is the highest-value action a non-superuser can take.
+@requires_second_factor
 def verification_queue(request):
     """Transfers waiting on a human. Organizers see their own events; staff see all."""
     payments = (

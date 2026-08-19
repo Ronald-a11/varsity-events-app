@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm it's you · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-sm px-4 py-16 sm:px-6">
+    <h1 class="text-2xl font-extrabold tracking-tight text-ink">Confirm it's you</h1>
+    <p class="mt-2 text-sm text-ink-subtle">
+      Open your authenticator app and enter the code it's showing.
+    </p>
+
+    <form method="post" class="mt-6" data-auth-form>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}" />
+      <input
+        type="text" name="token" inputmode="numeric" autocomplete="one-time-code"
+        maxlength="20" required autofocus placeholder="123 456"
+        class="w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-center font-mono text-2xl tracking-widest text-ink focus:border-brand-500 focus:outline-none"
+      />
+      {% if error %}
+        <p class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
+      {% endif %}
+      <button type="submit" class="btn-primary mt-4 w-full">Continue</button>
+    </form>
+
+    <p class="mt-6 text-xs text-ink-subtle">
+      Lost your phone? Enter one of your recovery codes above instead — each works once.
+    </p>
+  </div>
+{% endblock %}

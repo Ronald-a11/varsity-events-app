@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Set up a second factor · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-md px-4 py-12 sm:px-6">
+    <h1 class="text-2xl font-extrabold tracking-tight text-ink">Add a second factor</h1>
+
+    {% if handles_money %}
+      <p class="mt-2 text-sm text-ink-subtle">
+        This account can mark an EcoCash transfer as received, which releases a real ticket.
+        A password on its own isn't enough for that.
+      </p>
+    {% else %}
+      <p class="mt-2 text-sm text-ink-subtle">
+        An extra step at sign-in, so a stolen password isn't enough on its own.
+      </p>
+    {% endif %}
+
+    <ol class="mt-8 space-y-6">
+      <li>
+        <p class="text-sm font-semibold text-ink">1. Scan this with an authenticator app</p>
+        <p class="mt-1 text-xs text-ink-subtle">
+          Google Authenticator, Authy, 1Password — any of them. It works offline, so you don't
+          need airtime or a signal to sign in.
+        </p>
+        <div class="mt-3 rounded-2xl border border-hairline bg-surface-2 p-5 text-center">
+          <img src="{{ qr }}" alt="Setup QR code" class="mx-auto h-44 w-44 rounded-xl bg-white p-2" />
+          <details class="mt-4 text-left">
+            <summary class="cursor-pointer text-xs font-medium text-ink-subtle hover:text-ink">
+              Can't scan it?
+            </summary>
+            <p class="mt-2 break-all rounded-lg bg-surface px-3 py-2 font-mono text-xs text-ink">{{ secret }}</p>
+            <p class="mt-1 text-xs text-ink-subtle">Type this into the app by hand instead.</p>
+          </details>
+        </div>
+      </li>
+
+      <li>
+        <p class="text-sm font-semibold text-ink">2. Enter the six digits it shows</p>
+        <form method="post" class="mt-3" data-auth-form>
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ next }}" />
+          <input
+            type="text" name="token" inputmode="numeric" autocomplete="one-time-code"
+            maxlength="9" required autofocus placeholder="123 456"
+            class="w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-center font-mono text-2xl tracking-widest text-ink focus:border-brand-500 focus:outline-none"
+          />
+          {% if error %}
+            <p class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
+          {% endif %}
+          <button type="submit" class="btn-primary mt-4 w-full">Turn it on</button>
+        </form>
+      </li>
+    </ol>
+  </div>
+{% endblock %}

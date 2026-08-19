@@ -74,6 +74,11 @@ INSTALLED_APPS = [
     # is guarded on the connection being Postgres — so development is unaffected.
     "django.contrib.postgres",
     "django_q",
+    # Second factor for the accounts that can release money. TOTP because an
+    # authenticator app works on a handset with no airtime and no signal.
+    "django_otp",
+    "django_otp.plugins.otp_totp",
+    "django_otp.plugins.otp_static",
     "accounts",
     "organizations",
     "events",
@@ -90,6 +95,9 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Must sit after authentication: it decorates request.user with
+    # is_verified(), which is the whole question the money views ask.
+    "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Turns the throttle's PermissionDenied into a 429 with a Retry-After —
@@ -521,6 +529,26 @@ if SENTRY_DSN:
         # party for the convenience of debugging.
         send_default_pii=False,
     )
+
+
+# Two-factor authentication
+#
+# Enforced on the views that can release money — see accounts/twofactor.py.
+# A privileged account without a device is redirected to set one up, never
+# refused, so enabling this can't lock anybody out.
+#
+# Django's own admin is a separate switch, and it defaults off on purpose:
+# turning it on with no enrolled superuser locks the only account that could
+# fix it out of the only place it could be fixed. Enrol first, then set this.
+ADMIN_REQUIRE_2FA = env_bool("DJANGO_ADMIN_REQUIRE_2FA", False)
+
+# The name a student's authenticator app shows beside the code.
+OTP_TOTP_ISSUER = SITE_NAME
+
+# django-otp throttles a device after wrong codes, doubling the wait each time.
+# Belt and braces with the per-view rate limits on the challenge.
+OTP_TOTP_THROTTLE_FACTOR = 1
+OTP_STATIC_THROTTLE_FACTOR = 1
 
 
 # Throttling

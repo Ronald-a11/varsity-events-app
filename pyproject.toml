@@ -15,27 +15,25 @@ dependencies = [
     "requests>=2.32",
     "cryptography>=43.0",
     "whitenoise>=6.7",
-
     # Production serving and database
     "gunicorn>=23.0",
     "dj-database-url>=2.3",
     "psycopg[binary,pool]>=3.2",
-
     # Cache, queue and scheduler
     "redis>=5.2",
     "django-q2>=1.7",
-
     # Uploaded posters and society logos, when an object store is configured
     "django-storages[s3]>=1.14",
-
     # Throttling for the endpoints that cost money or reach a gateway
     "django-ratelimit>=4.1",
-
     # Error reporting. Inert unless SENTRY_DSN is set
     "sentry-sdk[django]>=2.19",
-
     # Web Push. Inert unless a VAPID key pair is set
     "pywebpush>=2.0",
+
+    # Second factor for the accounts that can release money. TOTP, because an
+    # authenticator app works on a handset with no airtime and no signal.
+    "django-otp>=1.5",
 ]
 
 [dependency-groups]

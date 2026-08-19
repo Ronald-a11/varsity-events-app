@@ -15,6 +15,7 @@ from django.utils import timezone
 from accounts.models import University, User
 from events.models import Category, Event, Registration
 from organizations.models import Membership, Organization
+from varsity.testing import login_verified
 
 from .forms import CheckoutForm
 from .models import Payment, expire_stale_payments, total_collected
@@ -910,7 +911,7 @@ class EcoCashDirectTests(PaymentTestCase):
         payment = self.start_transfer()
         payment.submit_confirmation("MP260816.1423.A12345")
 
-        self.client.force_login(self.organizer)
+        login_verified(self.client, self.organizer)
         response = self.client.get(reverse("payments:verify"))
 
         self.assertEqual(response.status_code, 200)
@@ -942,7 +943,7 @@ class EcoCashDirectTests(PaymentTestCase):
         payment = self.start_transfer()
         payment.submit_confirmation("MP260816.1423.A12345")
 
-        self.client.force_login(self.organizer)
+        login_verified(self.client, self.organizer)
         self.client.post(
             reverse("payments:verify"), {"payment_id": payment.pk, "decision": "verify"}
         )

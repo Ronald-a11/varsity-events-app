@@ -142,6 +142,7 @@ Staff get one extra top-level link, because moderation is a different job.
             <a href="{% url 'accounts:tickets' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">My tickets</a>
             <a href="{% url 'accounts:saved' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Saved events</a>
             <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Profile &amp; settings</a>
+            <a href="{% url 'accounts:two_factor_manage' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Security</a>
 
             {% if user.can_organize %}
               <a href="{% url 'events:dashboard' %}" class="block border-t border-hairline px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink lg:hidden">Organizer dashboard</a>

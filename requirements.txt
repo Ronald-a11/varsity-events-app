@@ -216,11 +216,16 @@ django==5.2.17 ; sys_platform == 'darwin' or sys_platform == 'linux' or sys_plat
     --hash=sha256:f04fb3b36ee119e1af4fa1d397d5fd6cf12700f49321e84d4f4c642c5b1973db
     # via
     #   dj-database-url
+    #   django-otp
     #   django-picklefield
     #   django-q2
     #   django-storages
     #   sentry-sdk
     #   varsity-events
+django-otp==1.7.0 ; sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32' \
+    --hash=sha256:406d2d7f797dc313569270e06d6c360c7d986c9f653eab80b190d663ed5f1133 \
+    --hash=sha256:961ccf2d80a67303cb46d97427b16c476ee075acfa2b4c82a59d8f1e0745a454
+    # via varsity-events
 django-picklefield==3.4.0 ; sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32' \
     --hash=sha256:3a1f740536c0e60d0dba43aa89ccdbe86760d4c3f8ec47799eae122baa741d0a \
     --hash=sha256:929bcfbae5b48bd22a52bc04521fdfdd152eee36abb9f20228f9480f9df65f45

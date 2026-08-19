@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_2fa
 
 app_name = "accounts"
 
@@ -28,6 +28,18 @@ urlpatterns = [
         views.VarsityPasswordResetCompleteView.as_view(),
         name="password_reset_complete",
     ),
+    # Second factor. Reachable by anyone — students may want one too — but
+    # only demanded of accounts that can release money.
+    path("security/", views_2fa.two_factor_manage, name="two_factor_manage"),
+    path("security/setup/", views_2fa.two_factor_setup, name="two_factor_setup"),
+    path("security/verify/", views_2fa.two_factor_verify, name="two_factor_verify"),
+    path("security/codes/", views_2fa.two_factor_codes, name="two_factor_codes"),
+    path(
+        "security/codes/new/",
+        views_2fa.two_factor_regenerate_codes,
+        name="two_factor_regenerate_codes",
+    ),
+    path("security/disable/", views_2fa.two_factor_disable, name="two_factor_disable"),
     path("profile/", views.profile, name="profile"),
     path("profile/edit/", views.profile_edit, name="profile_edit"),
     path("tickets/", views.my_tickets, name="tickets"),

@@ -12,6 +12,7 @@ from django_ratelimit.decorators import ratelimit
 
 from accounts.models import University, User
 from events.models import Category, Event, Registration, TicketStatus
+from accounts.twofactor import requires_second_factor
 from events.search import search_events
 from organizations.models import Organization
 
@@ -215,8 +216,13 @@ def quick_search(request):
 
 
 def staff_required(view):
-    """Only platform staff may curate events across every university."""
-    return login_required(
+    """Only platform staff may curate events across every university.
+
+    Staff can publish, unpublish, cancel and delete any event at any
+    university, and can verify any payment — so the session has to have
+    presented a second factor as well as a password.
+    """
+    return requires_second_factor(
         user_passes_test(lambda u: u.is_platform_staff, login_url="core:home")(view)
     )
 

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Security · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-md px-4 py-12 sm:px-6">
+    <h1 class="text-2xl font-extrabold tracking-tight text-ink">Security</h1>
+
+    {% if enrolled %}
+      <div class="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+        <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+          ✓ Second factor is on
+        </p>
+        <p class="mt-1 text-xs text-emerald-800 dark:text-emerald-400">
+          {{ codes_left }} recovery code{{ codes_left|pluralize }} left.
+        </p>
+      </div>
+
+      <div class="mt-6 space-y-3">
+        <form method="post" action="{% url 'accounts:two_factor_regenerate_codes' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-secondary w-full">Generate new recovery codes</button>
+        </form>
+        <form method="post" action="{% url 'accounts:two_factor_disable' %}"
+              onsubmit="return confirm('Remove the second factor from this account?')">
+          {% csrf_token %}
+          <button type="submit" class="btn-secondary w-full text-rose-600 dark:text-rose-400">
+            Turn off two-factor
+          </button>
+        </form>
+      </div>
+    {% else %}
+      <p class="mt-2 text-sm text-ink-subtle">
+        {% if handles_money %}
+          This account can release payments, so it needs a second factor before it can verify
+          another transfer.
+        {% else %}
+          Not on. An extra step at sign-in, so a stolen password isn't enough on its own.
+        {% endif %}
+      </p>
+      <a href="{% url 'accounts:two_factor_setup' %}" class="btn-primary mt-6 block w-full text-center">
+        Set up two-factor
+      </a>
+    {% endif %}
+  </div>
+{% endblock %}

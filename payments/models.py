@@ -308,11 +308,15 @@ class Payment(models.Model):
         )
 
         # The ticket is already saved. Mail is best-effort by design — see
-        # core.mail — so a mail server having a bad day can't undo a payment.
-        from core.mail import send_payment_receipt, send_ticket_confirmed
+        # core.mail — so a mail server having a bad day can't undo a payment,
+        # and it's queued so it can't slow down settling one either.
+        from core.tasks import send_payment_receipt, send_ticket_confirmed
+        from notifications.tasks import push_ticket_ready
 
         send_ticket_confirmed(registration)
         send_payment_receipt(self)
+        # They have been watching a spinner for this.
+        push_ticket_ready(registration)
         return True
 
     def submit_confirmation(self, code, paid_from=""):
@@ -326,7 +330,7 @@ class Payment(models.Model):
 
         # Nobody is watching a queue page. Tell the organizers there's money to
         # match, or the student waits on a ticket that nothing will release.
-        from core.mail import send_transfer_awaiting_organizer
+        from core.tasks import send_transfer_awaiting_organizer
 
         send_transfer_awaiting_organizer(self)
         return self
@@ -377,7 +381,7 @@ class Payment(models.Model):
 
         # The email quotes the code they gave us — usually the culprit — and the
         # field above has just been cleared, so pass it through explicitly.
-        from core.mail import send_transfer_rejected
+        from core.tasks import send_transfer_rejected
 
         send_transfer_rejected(self, rejected_code=rejected_code)
         return True

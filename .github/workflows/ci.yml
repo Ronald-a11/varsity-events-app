@@ -1,0 +1,167 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DJANGO_SECRET_KEY: ci-only-not-a-real-secret-key-0123456789
+  DJANGO_DEBUG: "True"
+
+jobs:
+  test:
+    name: Tests (${{ matrix.db }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # SQLite is what a developer runs; Postgres is what production runs, and
+        # the two disagree often enough — on ordering, on distinct, on how a
+        # subquery is planned — that green on one proves little about the other.
+        db: [sqlite, postgres]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: varsity_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # requirements.txt is generated from uv.lock. If somebody edits one and
+      # not the other, the lockfile stops meaning anything and the build stops
+      # being reproducible.
+      - name: requirements.txt matches uv.lock
+        run: |
+          pipx run uv export --frozen --no-dev --no-emit-project             --format requirements.txt -o /tmp/expected.txt
+          if ! diff <(grep -v '^#' requirements.txt) <(grep -v '^#' /tmp/expected.txt); then
+            echo "::error::requirements.txt has drifted from uv.lock. Re-export it."
+            exit 1
+          fi
+
+      - name: Check for models changed without a migration
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Run the tests
+        env:
+          DATABASE_URL: ${{ matrix.db == 'postgres' && 'postgres://postgres:postgres@localhost:5432/varsity_test' || '' }}
+        run: python manage.py test --shuffle --verbosity 2
+
+  deploy-check:
+    name: Production settings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Django's own deployment checklist
+        env:
+          DJANGO_DEBUG: "False"
+          # 50+ characters and not prefixed django-insecure-, so security.W009
+          # doesn't fire on the key itself and hide a real finding behind it.
+          DJANGO_SECRET_KEY: NotARealKeyJustLongEnoughToPassTheLengthCheckInCI012345
+          DJANGO_ALLOWED_HOSTS: varsityevents.app
+        run: python manage.py check --deploy --fail-level WARNING
+
+      - name: A missing SECRET_KEY must stop a production boot, not be papered over
+        env:
+          DJANGO_DEBUG: "False"
+          DJANGO_ALLOWED_HOSTS: varsityevents.app
+        run: |
+          if python manage.py check 2>/dev/null; then
+            echo "::error::settings booted with no DJANGO_SECRET_KEY set"
+            exit 1
+          fi
+          echo "Refused to boot without a key, as it should."
+
+  frontend:
+    name: Stylesheet and service worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: npm ci
+      - run: pip install -r requirements.txt
+
+      # sw.js is a Django template, so a stray tag or a trailing comma is a
+      # syntax error that only shows up in a browser — where the symptom is
+      # "offline tickets silently stopped working", not an exception anywhere.
+      - name: The rendered service worker is valid JavaScript
+        run: |
+          python - <<'PY'
+          import django, os
+          os.environ["DJANGO_SETTINGS_MODULE"] = "varsity.settings"
+          os.environ["DJANGO_ALLOWED_HOSTS"] = "testserver"
+          django.setup()
+          from django.test import Client
+          body = Client().get("/sw.js").content.decode()
+          open("sw.rendered.js", "w").write(body)
+          print(f"rendered {len(body)} bytes")
+          PY
+          node --check sw.rendered.js
+          rm sw.rendered.js
+
+      - name: The manifest is valid JSON
+        run: |
+          python - <<'PY'
+          import django, json, os
+          os.environ["DJANGO_SETTINGS_MODULE"] = "varsity.settings"
+          os.environ["DJANGO_ALLOWED_HOSTS"] = "testserver"
+          django.setup()
+          from django.test import Client
+          json.loads(Client().get("/manifest.webmanifest").content)
+          print("manifest parses")
+          PY
+
+      - name: The home-screen icons are committed
+        run: |
+          for icon in icon-192 icon-512 icon-maskable-512 apple-touch-icon; do
+            test -s "static/img/$icon.png" || {
+              echo "::error::static/img/$icon.png is missing. Run 'python manage.py make_icons'."
+              exit 1
+            }
+          done
+
+      # static/css/app.css is committed, because the production image installs
+      # no Node. That only works while the committed copy matches the source —
+      # so rebuild it and fail if the working tree moves.
+      - run: npm run build
+      - name: Committed CSS is up to date with static/src/input.css
+        run: |
+          if ! git diff --quiet -- static/css/app.css; then
+            echo "::error::static/css/app.css is stale. Run 'npm run build' and commit the result."
+            git diff --stat -- static/css/app.css
+            exit 1
+          fi

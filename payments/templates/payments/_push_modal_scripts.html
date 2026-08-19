@@ -99,6 +99,9 @@
 
     // -- polling ------------------------------------------------------
 
+    // Overwritten by whatever the server asks for; this is only the opening bid.
+    let nextIn = 3000;
+
     async function poll() {
       if (finished || !state) return;
       attempts += 1;
@@ -141,6 +144,12 @@
           return;
         }
 
+        // The server sets the pace: eager while a prompt is likely to be
+        // answered, slower once it isn't. Every poll used to cost an outbound
+        // call to the gateway, and on a Zimbabwean mobile plan it costs the
+        // student too.
+        if (data.retry_in) nextIn = data.retry_in * 1000;
+
         if (attempts > 6) say("Still waiting — the prompt can take a minute.");
       } catch (e) {
         /* transient blip; the next tick tries again */
@@ -150,7 +159,7 @@
     async function loop() {
       await poll();
       if (finished) return;
-      setTimeout(loop, attempts <= 10 ? 3000 : 6000);
+      setTimeout(loop, nextIn);
     }
 
     // -- launching ----------------------------------------------------

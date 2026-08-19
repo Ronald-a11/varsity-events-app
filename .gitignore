@@ -6,6 +6,9 @@ venv/
 
 # Django
 db.sqlite3
+# The test runner leaves these behind when a --parallel run is interrupted.
+default_*.sqlite3
+test_*.sqlite3
 media/
 staticfiles/
 .env

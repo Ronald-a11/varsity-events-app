@@ -42,6 +42,11 @@ Staff get one extra top-level link, because moderation is a different job.
          class="nav-link {% if request.resolver_match.app_name == 'organizations' %}nav-link-active{% endif %}">
         Societies
       </a>
+      <a href="{% url 'activity:live' %}"
+         class="nav-link inline-flex items-center gap-1.5 {% if request.resolver_match.app_name == 'activity' %}nav-link-active{% endif %}">
+        <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>
+        Live
+      </a>
     </div>
 
     <!-- Search -->
@@ -175,6 +180,9 @@ Staff get one extra top-level link, because moderation is a different job.
     <a href="{% url 'events:list' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Events</a>
     <a href="{% url 'events:gigs' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Varsity Gigs</a>
     <a href="{% url 'organizations:list' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Societies</a>
+    <a href="{% url 'activity:live' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">
+      <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>Live board
+    </a>
 
     {% if user.is_authenticated %}
       <p class="mt-2 border-t border-hairline px-3 pb-1 pt-3 text-2xs font-semibold uppercase tracking-widest text-ink-subtle">You</p>

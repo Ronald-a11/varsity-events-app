@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Live · {{ SITE_NAME }}{% endblock %}
+{% block description %}What's happening across every university in {{ SITE_COUNTRY }}, as it happens.{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+          <span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
+          Live
+        </p>
+        <h1 class="mt-2 text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
+          The pulse board
+        </h1>
+        <p class="mt-2 max-w-xl text-sm text-ink-subtle">
+          Every sign-up, ticket and check-in across {{ SITE_COUNTRY }}, the moment it happens.
+        </p>
+      </div>
+
+      <dl class="flex gap-6">
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">On right now</dt>
+          <dd class="mt-0.5 text-2xl font-extrabold text-ink">{{ stats.happening_now }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Tickets today</dt>
+          <dd class="mt-0.5 text-2xl font-extrabold text-ink">{{ stats.tickets_today }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-ink-subtle">Moments today</dt>
+          <dd class="mt-0.5 text-2xl font-extrabold text-ink">{{ stats.today }}</dd>
+        </div>
+      </dl>
+    </header>
+
+    <div class="mt-8 grid gap-6 lg:grid-cols-3">
+      <!-- The stream -->
+      <div class="lg:col-span-2">
+        <div class="overflow-hidden rounded-2xl border border-hairline bg-surface">
+          <div class="flex items-center justify-between border-b border-hairline px-5 py-3">
+            <h2 class="text-sm font-semibold text-ink">As it happens</h2>
+            <span class="inline-flex items-center gap-1.5 text-xs text-ink-subtle" data-feed-state>
+              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>
+              Watching
+            </span>
+          </div>
+
+          <ul class="divide-y divide-hairline" data-feed>
+            {% for row in activities %}
+              <li class="flex items-start gap-3 px-5 py-3">
+                <span class="mt-0.5 text-lg" aria-hidden="true">{{ row.icon }}</span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm text-ink">
+                    <span class="font-semibold">{{ row.actor_name }}</span>
+                    {{ row.get_verb_display }}
+                    {% if row.target_url %}
+                      <a href="{{ row.target_url }}" class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ row.target_name }}</a>
+                    {% else %}
+                      <span class="font-medium">{{ row.target_name }}</span>
+                    {% endif %}
+                    {% if row.detail %}<span class="text-ink-subtle">· {{ row.detail }}</span>{% endif %}
+                  </p>
+                  <p class="mt-0.5 text-xs text-ink-subtle">
+                    {% if row.university %}{{ row.university }} · {% endif %}{{ row.created_at|timesince }} ago
+                  </p>
+                </div>
+              </li>
+            {% empty %}
+              <li class="px-5 py-12 text-center text-sm text-ink-subtle" data-feed-empty>
+                Nothing yet today. This fills up as students sign up and doors open.
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <!-- Where the noise is -->
+      <aside>
+        <div class="rounded-2xl border border-hairline bg-surface p-5">
+          <h2 class="text-sm font-semibold text-ink">Busiest right now</h2>
+          <p class="mt-1 text-xs text-ink-subtle">Most activity in the last day.</p>
+
+          <ul class="mt-4 space-y-3">
+            {% for event in busiest %}
+              <li>
+                <a href="{{ event.get_absolute_url }}" class="group block">
+                  <p class="truncate text-sm font-semibold text-ink group-hover:text-brand-600">{{ event.title }}</p>
+                  <p class="mt-0.5 truncate text-xs text-ink-subtle">
+                    {{ event.organization.name }}{% if event.organization.university %} · {{ event.organization.university }}{% endif %}
+                  </p>
+                </a>
+              </li>
+            {% empty %}
+              <li class="text-sm text-ink-subtle">Quiet across the board.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    (() => {
+      const list = document.querySelector("[data-feed]");
+      const state = document.querySelector("[data-feed-state]");
+      if (!list) return;
+
+      const endpoint = "{% url 'activity:feed' %}";
+      let lastId = {{ last_id }};
+      let nextIn = 5000;
+      let stopped = false;
+
+      const escape = (value) =>
+        String(value ?? "").replace(/[&<>"']/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        })[c]);
+
+      function rowHtml(row) {
+        // Every field is escaped: actor names, event titles and society names
+        // are all user-supplied, and this is innerHTML.
+        const target = row.url
+          ? `<a href="${escape(row.url)}" class="font-medium text-brand-600 hover:underline dark:text-brand-400">${escape(row.target)}</a>`
+          : `<span class="font-medium">${escape(row.target)}</span>`;
+        const detail = row.detail ? `<span class="text-ink-subtle">· ${escape(row.detail)}</span>` : "";
+        const where = row.university ? `${escape(row.university)} · ` : "";
+
+        return `
+          <li class="flex items-start gap-3 px-5 py-3 animate-fade-up">
+            <span class="mt-0.5 text-lg" aria-hidden="true">${escape(row.icon)}</span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm text-ink">
+                <span class="font-semibold">${escape(row.actor)}</span>
+                ${escape(row.phrase)} ${target} ${detail}
+              </p>
+              <p class="mt-0.5 text-xs text-ink-subtle">${where}${escape(row.ago)}</p>
+            </div>
+          </li>`;
+      }
+
+      async function poll() {
+        // A background tab shouldn't spend somebody's data bundle on a board
+        // nobody is looking at.
+        if (document.hidden) return;
+
+        try {
+          const res = await fetch(`${endpoint}?since=${lastId}`, {
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+          });
+          if (!res.ok) return;
+
+          const data = await res.json();
+          if (data.retry_in) nextIn = data.retry_in * 1000;
+          lastId = data.last_id || lastId;
+
+          if (!data.rows.length) return;
+
+          document.querySelector("[data-feed-empty]")?.remove();
+          // Oldest first from the server, so prepending each in turn leaves the
+          // newest at the top.
+          for (const row of data.rows) list.insertAdjacentHTML("afterbegin", rowHtml(row));
+
+          // Don't let an all-day tab grow without limit.
+          while (list.children.length > 120) list.lastElementChild.remove();
+        } catch (e) {
+          /* transient blip; the next tick tries again */
+        }
+      }
+
+      (async function loop() {
+        await poll();
+        if (!stopped) setTimeout(loop, nextIn);
+      })();
+
+      // Catch up straight away when someone comes back to the tab.
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) poll();
+      });
+
+      window.addEventListener("pagehide", () => (stopped = true));
+    })();
+  </script>
+{% endblock %}

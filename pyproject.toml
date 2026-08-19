@@ -1,0 +1,56 @@
+[project]
+name = "varsity-events"
+version = "1.0.0"
+description = "Every university event in Zimbabwe, one place."
+requires-python = ">=3.12,<3.14"
+
+# The same set requirements.txt carried, moved here so uv can resolve it and
+# pin the result in uv.lock. The ranges stay deliberately loose — the lockfile
+# is what makes a build reproducible, not the ranges.
+dependencies = [
+    "Django>=5.2,<5.3",
+    "pillow>=11.0",
+    "qrcode>=8.0",
+    "python-dotenv>=1.0",
+    "requests>=2.32",
+    "cryptography>=43.0",
+    "whitenoise>=6.7",
+
+    # Production serving and database
+    "gunicorn>=23.0",
+    "dj-database-url>=2.3",
+    "psycopg[binary,pool]>=3.2",
+
+    # Cache, queue and scheduler
+    "redis>=5.2",
+    "django-q2>=1.7",
+
+    # Uploaded posters and society logos, when an object store is configured
+    "django-storages[s3]>=1.14",
+
+    # Throttling for the endpoints that cost money or reach a gateway
+    "django-ratelimit>=4.1",
+
+    # Error reporting. Inert unless SENTRY_DSN is set
+    "sentry-sdk[django]>=2.19",
+
+    # Web Push. Inert unless a VAPID key pair is set
+    "pywebpush>=2.0",
+]
+
+[dependency-groups]
+# Not installed in production. `uv sync` picks these up; `uv sync --no-dev`
+# and the Docker build do not.
+dev = [
+    "uv>=0.5",
+]
+
+[tool.uv]
+# Every environment resolves the same way regardless of which machine ran the
+# lock — otherwise a Windows laptop and a Linux container pin different wheels
+# and the lockfile stops meaning anything.
+environments = [
+    "sys_platform == 'linux'",
+    "sys_platform == 'win32'",
+    "sys_platform == 'darwin'",
+]

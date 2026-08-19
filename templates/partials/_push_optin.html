@@ -1,0 +1,121 @@
+{% comment %}
+  Ask to notify, at the only moment worth asking.
+
+  A browser gives a site one chance: deny it and the permission is buried in a
+  settings menu more or less forever. So this is never shown on page load and
+  never on a landing page — it lives on a ticket somebody has just got, where
+  "shall we remind you when doors open?" answers itself.
+
+  Renders nothing at all unless push is actually configured and the browser can
+  do it, so a deployment with no VAPID keys shows no dead button.
+{% endcomment %}
+<div class="mt-3 hidden" data-push-optin>
+  <button
+    type="button"
+    class="btn-secondary btn-sm w-full"
+    data-push-enable
+  >
+    🔔 Remind me when doors open
+  </button>
+
+  <div class="hidden items-center justify-between gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs" data-push-on>
+    <span class="font-medium text-emerald-700 dark:text-emerald-300">
+      ✓ We'll nudge you an hour before
+    </span>
+    <button type="button" class="font-medium text-emerald-600 underline dark:text-emerald-400" data-push-disable>
+      Turn off
+    </button>
+  </div>
+
+  <p class="mt-2 hidden text-xs text-ink-subtle" data-push-blocked>
+    Notifications are blocked for this site in your browser settings.
+  </p>
+</div>
+
+<script>
+  (async () => {
+    const root = document.querySelector("[data-push-optin]");
+    if (!root) return;
+
+    const supported =
+      "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    if (!supported) return;
+
+    // No keys configured server-side means push can't work; show nothing rather
+    // than a button that fails.
+    let serverKey = "";
+    try {
+      const res = await fetch("{% url 'notifications:public_key' %}");
+      const data = await res.json();
+      if (!data.configured) return;
+      serverKey = data.key;
+    } catch (e) {
+      return;
+    }
+
+    const show = (name) => {
+      root.classList.remove("hidden");
+      root.querySelectorAll("[data-push-enable], [data-push-on], [data-push-blocked]").forEach((el) =>
+        el.classList.add("hidden")
+      );
+      const el = root.querySelector(`[data-push-${name}]`);
+      if (!el) return;
+      el.classList.remove("hidden");
+      if (name === "on") el.classList.add("flex");
+    };
+
+    // The applicationServerKey has to be raw bytes, not the base64url string.
+    const toBytes = (base64url) => {
+      const padded = (base64url + "=".repeat((4 - (base64url.length % 4)) % 4))
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+      return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+    };
+
+    const post = (url, body) =>
+      fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")?.value || "",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: JSON.stringify(body),
+      });
+
+    const registration = await navigator.serviceWorker.ready;
+    const existing = await registration.pushManager.getSubscription();
+
+    if (Notification.permission === "denied") return show("blocked");
+    if (existing) show("on");
+    else show("enable");
+
+    root.querySelector("[data-push-enable]")?.addEventListener("click", async () => {
+      // Asked only here, on a tap, never on load.
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return show(permission === "denied" ? "blocked" : "enable");
+
+      try {
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: toBytes(serverKey),
+        });
+        const res = await post("{% url 'notifications:subscribe' %}", subscription.toJSON());
+        show(res.ok ? "on" : "enable");
+      } catch (e) {
+        show("enable");
+      }
+    });
+
+    root.querySelector("[data-push-disable]")?.addEventListener("click", async () => {
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) return show("enable");
+
+      // Tell the server first: a subscription we still hold but the browser has
+      // dropped is a push into the void on every send until it 410s.
+      await post("{% url 'notifications:unsubscribe' %}", { endpoint: subscription.endpoint });
+      await subscription.unsubscribe();
+      show("enable");
+    });
+  })();
+</script>

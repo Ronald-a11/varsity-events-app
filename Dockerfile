@@ -13,8 +13,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Dependencies first, so a code change doesn't reinstall the world.
+#
+# requirements.txt is exported from uv.lock, so every version is pinned and
+# every wheel is checked against a hash. Two builds a week apart now produce
+# the same image rather than quietly picking up a new Django patch release.
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 COPY . .
 

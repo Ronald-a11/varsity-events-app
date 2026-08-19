@@ -154,28 +154,41 @@
   {% elif payment.is_open %}
     <script>
       // Poll quietly until the gateway settles, then jump straight to the ticket.
+      // Self-scheduling at an interval the server chooses, rather than a fixed
+      // setInterval: a slow response can't stack requests up behind itself, and
+      // the pace can be widened server-side without redeploying this page.
       const endpoint = "{% url 'payments:status_json' payment.reference %}";
       let attempts = 0;
+      let nextIn = 3000;
+      let finished = false;
 
-      const tick = setInterval(async () => {
+      async function check() {
         attempts += 1;
-        if (attempts > 60) return clearInterval(tick); // ~5 minutes, then stop
+        if (attempts > 90) return (finished = true);
 
         try {
           const res = await fetch(endpoint, { headers: { "X-Requested-With": "XMLHttpRequest" } });
           if (!res.ok) return;
           const state = await res.json();
+
+          if (state.retry_in) nextIn = state.retry_in * 1000;
+
           if (state.settled && state.ticket_url) {
-            clearInterval(tick);
+            finished = true;
             window.location = state.ticket_url;
           } else if (!state.open) {
-            clearInterval(tick);
+            finished = true;
             window.location.reload();
           }
         } catch (e) {
           /* transient network blip — keep waiting */
         }
-      }, 5000);
+      }
+
+      (async function loop() {
+        await check();
+        if (!finished) setTimeout(loop, nextIn);
+      })();
     </script>
   {% endif %}
 {% endblock %}

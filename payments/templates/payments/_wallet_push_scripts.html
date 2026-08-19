@@ -81,6 +81,8 @@
     // -- polling ------------------------------------------------------
 
     let attempts = 0;
+    // Overwritten by whatever the server asks for; this is only the opening bid.
+    let nextIn = 3000;
 
     async function poll() {
       if (finished) return;
@@ -125,6 +127,9 @@
           return;
         }
 
+        // The server sets the pace — see _retry_in in payments/views.py.
+        if (state.retry_in) nextIn = state.retry_in * 1000;
+
         // Still waiting — reassure rather than sit silent.
         if (attempts > 6) say("Still waiting — the prompt can take a minute.");
       } catch (e) {
@@ -132,13 +137,14 @@
       }
     }
 
-    // Fast at first, when the payer is most likely mid-PIN, then ease off.
-    // Self-scheduling rather than setInterval, so a slow response can't stack
-    // requests up behind itself.
+    // Fast at first, when the payer is most likely mid-PIN, then ease off —
+    // at a pace the server picks, so it can be widened without a front-end
+    // deploy. Self-scheduling rather than setInterval, so a slow response can't
+    // stack requests up behind itself.
     async function loop() {
       await poll();
       if (finished) return;
-      setTimeout(loop, attempts <= 10 ? 3000 : 6000);
+      setTimeout(loop, nextIn);
     }
     loop();
   })();

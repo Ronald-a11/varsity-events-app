@@ -361,7 +361,13 @@ the site can't count them.
 python manage.py test
 ```
 
-135 tests covering registration and waitlist promotion, capacity and deadline enforcement, every
+354 tests, about a minute. It used to be far worse: PBKDF2 hashes the handful of users almost
+every `setUp` creates, at roughly a second apiece and much more on a slow machine, which put a
+full run into the tens of minutes and meant nobody ran one. Tests now hash with MD5 — see the
+`TESTING` block at the foot of `varsity/settings.py`, which also pins the cache to local memory,
+runs tasks inline and leaves throttling off.
+
+They cover registration and waitlist promotion, capacity and deadline enforcement, every
 availability state and the manual override, ticket outlets and the sold-out / not-available
 messaging, the post-login feed and its university ordering, staff curation permissions and actions,
 the ⌘K search endpoint, permission boundaries on every management view, ticket privacy, CSV and
@@ -377,7 +383,57 @@ The live system too: activity recording for every verb, sold-out announced exact
 incremental feed paging by since-id, ordering guaranteed oldest-first for prepending, private
 rows kept off the feed, shortened display names, and the simulator's production guard.
 
+And the plumbing: that counting seats issues **no writes**, that a lapsed hold stops counting
+before anything sweeps for it, that a listing costs the same number of queries whether it shows
+three events or twenty, that an annotated event still notices its own registrations, that ten
+polls in a second ask the gateway once but still spot a payment settled by callback, that a
+queued email arrives when the broker is down, that a job whose row has been deleted logs rather
+than raises, and that hammering the gateway callback earns a 429 without blocking anybody else's
+payment.
+
+The PWA gets its own: that the QR is inline rather than a second request, that
+the endpoint and the inline copy encode the same thing, that money and identity
+are on the worker's never-cache list, that tickets survive a deploy, that signing
+out clears them, and that a ticket is still private. CI renders the worker and
+runs `node --check` over it, because a stray template tag there is a syntax error
+whose only symptom is "offline tickets quietly stopped working".
+
+Push is tested for what it doesn't do as much as what it does: a dead
+subscription is deleted rather than retried, a transient failure is counted, a
+send that raises never reaches the caller, nobody is reminded twice, and an
+ordinary free sign-up pushes nothing at all. The VAPID command is checked by
+having pywebpush's own loader sign with the key it emits — the keys we tell an
+operator to use have to actually work.
+
+Search is tested on both databases. The shared behaviour — finding an event by title, summary,
+tags, society or venue — runs everywhere; ranking, stemming and websearch syntax are skipped on
+SQLite and run against Postgres.
+
+CI runs all of it on every push — against **both SQLite and Postgres**, because they disagree
+often enough that green on one proves little about the other. See `.github/workflows/ci.yml`,
+which also fails the build on a model changed without a migration, on `check --deploy` raising
+so much as a warning, and on `static/css/app.css` drifting from its Tailwind source.
+
 ---
+
+## Dependencies
+
+Declared in `pyproject.toml`, resolved into `uv.lock`, and exported to
+`requirements.txt` so that anything pip-based — the Dockerfile, CI, a plain
+`pip install -r` — gets the same pinned, hash-verified set without needing uv
+installed.
+
+```bash
+# change a dependency
+vim pyproject.toml
+uv lock
+uv export --frozen --no-dev --no-emit-project --format requirements.txt -o requirements.txt
+```
+
+`requirements.txt` used to carry `>=` ranges, which meant two builds a week
+apart could ship different Django patch releases and nobody would know. CI fails
+if the exported file has drifted from the lock, and the Docker build installs
+with `--require-hashes`.
 
 ## Configuration
 
@@ -403,6 +459,206 @@ Copy `.env.example` to `.env` and adjust. Everything has a sensible development 
 
 Setting `DJANGO_DEBUG=False` enables HSTS, SSL redirect, secure cookies, and WhiteNoise's
 compressed manifest storage. Run `python manage.py collectstatic` before deploying.
+
+**`DJANGO_SECRET_KEY` has no production default.** With `DEBUG=False` and no key set, the app
+refuses to start rather than fall back to one committed to this repository — anyone holding that
+key can forge session cookies and password-reset tokens.
+
+### Infrastructure
+
+All optional. Leave every one of these blank and the app behaves exactly as it did before any of
+it existed: cache in local memory, tasks inline, uploads on the local disk, logs to stderr, no
+error reporting.
+
+| Variable                  | Default  | Notes                                              |
+| ------------------------- | -------- | -------------------------------------------------- |
+| `REDIS_URL`               | blank    | Shared cache, and the task broker when set          |
+| `DJANGO_TASKS_ASYNC`      | `False`  | Turn on **only** alongside a running `qcluster`     |
+| `AWS_STORAGE_BUCKET_NAME` | blank    | Uploads to object storage; S3, R2, B2 or Spaces     |
+| `DJANGO_DB_POOL`          | `False`  | psycopg pooling; excludes persistent connections    |
+| `DJANGO_LOG_FORMAT`       | by DEBUG | `json` in production, `console` in development      |
+| `DJANGO_LOG_SQL`          | `False`  | Prints every query — how you find an N+1            |
+| `SENTRY_DSN`              | blank    | Error reporting; inert without it                   |
+| `DJANGO_RATELIMIT_ENABLE` | `True`   | Only turn off to debug a limit you think is wrong   |
+
+#### Redis
+
+The login throttle counts failed attempts in the cache. With local memory each Gunicorn worker
+keeps its own tally, so eight allowed attempts really means eight *per worker*. `REDIS_URL` makes
+the count shared and the lockout mean what it says.
+
+#### Background work
+
+Two jobs shouldn't happen while a student waits for a page: sending mail — `Event.register()` put
+an SMTP round trip inside the request that issues a ticket — and releasing seats held by abandoned
+checkouts.
+
+```bash
+DJANGO_TASKS_ASYNC=True
+python manage.py qcluster
+```
+
+Set the flag **only in the same change that starts the worker**. A queue with nothing behind it
+accepts jobs and silently never runs them, and this is deliberately not inferred from `REDIS_URL`
+for exactly that reason. Left off, every task runs inline where it always did. The queue rides on
+Redis when there is one and on the database when there isn't, so it doesn't require Redis — it
+prefers it.
+
+The cluster also runs a sweep every minute that retires timed-out checkouts and offers the freed
+seats to the waitlist. Without a worker, run it from cron instead:
+
+```bash
+python manage.py expire_holds
+```
+
+Seats stay **correctly counted** either way. `Event.reserved_count` discounts a lapsed hold in the
+query rather than relying on something having released it, so a sweep that never runs leaves stale
+rows but never wrongly turns a student away. It used to release them itself, which meant rendering
+nine event cards on a listing issued nine sets of UPDATEs on a GET request.
+
+#### The live board
+
+`/live/` shows every sign-up, ticket and check-in across the country as it
+happens. The model always had what it needed — `public()`, `since()`,
+`for_feed()`, `as_dict()` — and the README had been advertising the page for a
+while; `activity/views.py` is the part that was missing.
+
+The feed reads strictly **forward from the last id the client saw**. No
+timestamps to reconcile, no overlap window to tune, and no way to get a
+duplicate or a gap, because ids are monotonic and the index is on `-id`. Rows
+come back oldest-first so the client can prepend them and keep the order, and a
+client that has been asleep in a background tab gets the newest slice rather
+than crawling forward an hour at a time. Polling stops entirely while the tab is
+hidden, and the server sets the interval — 5s when things are happening, 15s
+when they aren't.
+
+#### Installable, and tickets that work offline
+
+The one thing this app produces that genuinely has to work without a network is
+a ticket. A student arrives at a hall on the edge of campus, in a crowd, on a
+bundle that ran out on the walk over, and has to show a QR code. Everything here
+serves that moment; installability falls out of it for free.
+
+- The QR is **inline in the page** as a data URI, not an `<img>` pointing at our
+  own endpoint. Whatever cached the page cached the code with it, and there is no
+  second request to fail. `events/qr.py` is the single source both it and the
+  `qr.png` endpoint read, so a door scanner and a student's screen can't drift
+  apart.
+- Ticket pages are cached the moment they are first opened, in a cache that is
+  **not** versioned — a deploy must not delete somebody's ticket.
+- Signing out clears the cached pages. Campus devices get shared, and a cached
+  ticket outliving its session is the next person's business.
+- `/pay/`, `/admin/`, `/staff/` and the auth pages are **never** stored or served
+  from a cache. A stale payment page can tell somebody their money failed when it
+  went through.
+
+The manifest and the worker are rendered by `core/pwa.py` rather than served as
+static files, because both need the hashed stylesheet URL and a version that
+moves on every deploy. `sw.js` answers from the root on purpose: a worker can
+only control pages at or below its own path.
+
+Icons are drawn, not designed — `python manage.py make_icons`, the same approach
+`seed_demo` takes to its artwork. Commit what it writes; the production image has
+no Pillow step, exactly as with `static/css/app.css`.
+
+#### Notifications
+
+Push is not email. A browser gives a site **one** chance to ask, and a denied
+permission is buried in a settings menu more or less forever — so there is no
+"enable notifications?" prompt on page load anywhere in this app, and there
+should never be one. The ask lives on a ticket somebody has just been issued,
+where the question answers itself.
+
+Three things are considered worth interrupting a student for, all of them
+time-critical and actionable:
+
+| | Why it's a push and not an email |
+| --- | --- |
+| A waitlist seat opened up | The hold expires. Read it tomorrow and it's gone. |
+| The money landed | They were watching a spinner for it. |
+| Doors open in an hour | They wanted to be there. |
+
+Everything else is an email. Reminders are stamped on the registration when they
+go out, so a cluster that restarts or catches up can't nag — being nagged is how
+the permission gets revoked.
+
+```bash
+python manage.py make_vapid_keys
+```
+
+Both halves come out as single-line base64url, which is what `subscribe()` wants
+and what fits an environment variable. Keep the pair stable once set: a browser
+ties its subscription to the key that created it, so rotating it silently
+invalidates every permission anybody has granted. Leave the keys blank and push
+is a no-op everywhere — no dead button is rendered and nothing else changes.
+
+#### Search
+
+Postgres gets a stored `tsvector` on `Event`, behind a GIN index, weighted so a
+word in the title outranks the same word buried in a description, stemmed so
+"parties" finds "party", and ranked so the best match is listed first. The search
+box accepts the syntax people already expect: `"quoted phrases"`, `OR`, and a
+leading `-` to exclude.
+
+SQLite has none of that and development runs on SQLite, so both paths live behind
+one function in `events/search.py` and the fallback is the `icontains` chain this
+app used everywhere before. The migration that adds the GIN index is a no-op off
+Postgres — see `varsity/dbops.py` — so the migration history stays single.
+
+Each event rewrites its own vector when it is saved. Two cases that doesn't cover:
+
+```bash
+python manage.py rebuild_search                     # everything
+python manage.py rebuild_search --organization=uz-jazz-society
+```
+
+Run it after deploying the field for the first time, when every row is still
+null, and after a society or venue is renamed — that name is baked into the
+vector of every event they host, and renaming one re-saves none of them.
+
+#### Counting seats
+
+`Event.availability` asks `is_full`, which asks `reserved_count`. On a listing
+that is once per card, and each card reads `availability` four times over — for
+the badge, the tickets-left phrase, the short form and the colour. Twelve events
+cost **260 queries**.
+
+`EventQuerySet.with_counts()` annotates both figures with subqueries, and the
+properties read the annotation when it is there. The same page is now **6
+queries, flat** however long the list gets, and `availability` is cached per
+instance.
+
+The catch is that an annotated instance is carrying numbers from whenever its
+query ran. Anything that changes them has to call `event.forget_counts()` — the
+mutating methods already do, because for `is_full` a stale count is the
+difference between selling the last seat once and selling it twice.
+
+#### Payment status
+
+The status page polls, and each poll used to make us ask the gateway — roughly
+forty outbound calls per student per checkout, all about the same transaction.
+`PAYMENT_POLL_MIN_SECONDS` (default 4) is a floor on how often that question
+gets asked. Local state still updates on every poll, so a payment confirmed by
+callback is picked up on the very next tick; only the network call is rationed.
+A nudge from the gateway itself is never debounced — it means something changed.
+
+The response also carries `retry_in`, and the client obeys it: 2s while a wallet
+prompt is likely to be answered, 5s after half a minute, 10s after ninety
+seconds. The pace can be widened for a struggling gateway without redeploying
+the front end.
+
+SSE was the obvious alternative and was rejected: production runs sync Gunicorn
+workers, so a handful of open streams would block the whole site, and a long-held
+connection is the wrong shape for a patchy mobile network anyway. It is worth
+revisiting behind an ASGI migration, as its own piece of work.
+
+#### Throttling
+
+Per-view limits on the endpoints that cost money, reach a payment gateway, or answer a question
+worth automating — the Pesepay callback (open to the internet, and each hit makes us call the
+gateway), checkout, wallet-prompt resends, status polling, sign-up, username availability, and
+event registration. Throttled callers get a **429 with `Retry-After`**, not the 403 the library
+raises by default: a gateway retries one and gives up on the other.
 
 ## Deploying to Railway
 
@@ -474,6 +730,19 @@ railway run python manage.py createsuperuser
 Posters and society logos are written to `MEDIA_ROOT`, which is **ephemeral unless you mount a
 volume** — otherwise every image disappears on the next deploy while the database still points
 at it, and the site fills with broken thumbnails.
+
+The better answer is object storage, which survives a deploy without a volume and takes that
+traffic off the web workers entirely:
+
+```bash
+AWS_STORAGE_BUCKET_NAME=varsity-events-media
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com   # R2; omit for AWS
+```
+
+Set a bucket and `DJANGO_SERVE_MEDIA` defaults to off, because Django then has no reason to serve
+uploads itself. The volume route below still works and is what the rest of this section covers.
 
 ```bash
 railway volume add --mount-path /data

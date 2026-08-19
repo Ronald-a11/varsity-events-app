@@ -1,13 +1,34 @@
 import secrets
+from functools import cached_property
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, IntegerField, OuterRef, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import dateformat, timezone
 from django.utils.text import slugify
+
+
+# Fields whose contents end up in the search vector. Saving anything else can
+# skip the rebuild. Both the attribute and the column are listed, since callers
+# name update_fields either way.
+SEARCHABLE_FIELDS = frozenset(
+    {
+        "title",
+        "summary",
+        "description",
+        "tags",
+        "organization",
+        "organization_id",
+        "venue",
+        "venue_id",
+    }
+)
 
 
 def generate_ticket_code():
@@ -84,27 +105,37 @@ class EventQuerySet(models.QuerySet):
         return self.filter(ends_at__lt=timezone.now()).order_by("-starts_at")
 
     def with_counts(self):
-        """Annotate attendance figures so listings stay a single query.
+        """Annotate attendance figures so a listing stays a fixed number of queries.
 
-        `confirmed_count` drives popularity; `reserved_total` also counts seats held
-        by in-flight payments, which is what capacity should be measured against.
+        `confirmed_count` drives popularity; `reserved_total` is what capacity
+        has to be measured against, so it counts live checkouts too and applies
+        exactly the rule in :func:`reserved_seats_q` — a lapsed hold is not a
+        held seat. The two used to disagree, which showed up as a card marked
+        sold out linking to a page offering tickets.
+
+        Counted with subqueries rather than joined aggregates: two `Count`s over
+        the same reverse relation multiply each other's rows, and `distinct=True`
+        only papers over that at the cost of a sort per row.
+
+        The properties below read these when they are present, so annotating is
+        what keeps `event.availability` from re-querying once per card.
         """
-        return self.annotate(
-            confirmed_count=Count(
-                "registrations",
-                filter=Q(registrations__status=Registration.Status.CONFIRMED),
-                distinct=True,
-            ),
-            reserved_total=Count(
-                "registrations",
-                filter=Q(
-                    registrations__status__in=[
-                        Registration.Status.CONFIRMED,
-                        Registration.Status.AWAITING_PAYMENT,
-                    ]
+        def tally(condition):
+            return Coalesce(
+                Subquery(
+                    Registration.objects.filter(event=OuterRef("pk"))
+                    .filter(condition)
+                    .values("event")
+                    .annotate(total=Count("pk"))
+                    .values("total"),
+                    output_field=IntegerField(),
                 ),
-                distinct=True,
-            ),
+                0,
+            )
+
+        return self.annotate(
+            confirmed_count=tally(Q(status=Registration.Status.CONFIRMED)),
+            reserved_total=tally(reserved_seats_q()),
         )
 
 
@@ -194,6 +225,12 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Weighted, stemmed text for search, kept up to date by events.search. Only
+    # ever populated on Postgres; on SQLite the column exists and stays null,
+    # and search falls back to LIKE. Not editable, because nothing should be
+    # typing into it — see events/search.py for what goes in.
+    search_vector = SearchVectorField(null=True, blank=True, editable=False)
+
     objects = EventQuerySet.as_manager()
 
     class Meta:
@@ -202,6 +239,9 @@ class Event(models.Model):
             models.Index(fields=["slug"]),
             models.Index(fields=["status", "starts_at"]),
             models.Index(fields=["starts_at"]),
+            # What makes full-text search a lookup rather than a table scan.
+            # Postgres only; the migration skips it elsewhere. See varsity/dbops.py.
+            GinIndex(fields=["search_vector"], name="event_search_vector_gin"),
         ]
 
     def __str__(self):
@@ -234,6 +274,16 @@ class Event(models.Model):
         if self.is_free:
             self.price = 0
         super().save(*args, **kwargs)
+
+        # What search knows about this event is now stale — but only if the text
+        # it indexes actually moved. Publishing, cancelling and picking an event
+        # all save nothing but `status`, and there is no reason for those to cost
+        # a rebuild. Costs one extra UPDATE on Postgres, nothing on SQLite.
+        touched = kwargs.get("update_fields")
+        if touched is None or SEARCHABLE_FIELDS.intersection(touched):
+            from .search import refresh_search_vectors
+
+            refresh_search_vectors(Event.objects.filter(pk=self.pk))
 
     def get_absolute_url(self):
         return reverse("events:detail", kwargs={"slug": self.slug})
@@ -270,6 +320,8 @@ class Event(models.Model):
 
     @property
     def attendee_count(self):
+        if (annotated := getattr(self, "confirmed_count", None)) is not None:
+            return annotated
         return self.confirmed_registrations.count()
 
     @property
@@ -284,16 +336,26 @@ class Event(models.Model):
     def reserved_count(self):
         """Seats that are genuinely spoken for: confirmed, plus live checkouts.
 
-        A paid registration holds its place while the student is on Paynow, so two
-        people can't buy the last ticket at once. Abandoned checkouts are released
-        first, so a hold can never outlive its window.
-        """
-        from payments.models import expire_stale_payments
+        A paid registration holds its place while the student is on the gateway,
+        so two people can't buy the last ticket at once — but only until that
+        checkout's window closes.
 
-        expire_stale_payments(event=self)
-        return self.registrations.filter(
-            status__in=[Registration.Status.CONFIRMED, Registration.Status.AWAITING_PAYMENT]
-        ).count()
+        This used to release the timed-out holds itself before counting, which
+        meant that rendering an event card issued database writes on a GET. It
+        now discounts them in the query instead, which gives the same number
+        without the writes. Actually retiring them — cancelling the registration
+        and promoting whoever is next off the waitlist — is a job for the
+        cluster: see :func:`payments.tasks.release_abandoned_holds`. If that
+        never runs, the rows go stale but the count here stays right, so nobody
+        is ever wrongly turned away.
+
+        Reads the annotation from :meth:`EventQuerySet.with_counts` when there is
+        one. Without that, a listing asked this question once per card, and
+        `availability` asks it on every card.
+        """
+        if (annotated := getattr(self, "reserved_total", None)) is not None:
+            return annotated
+        return self.registrations.filter(reserved_seats_q()).count()
 
     @property
     def seats_left(self):
@@ -334,12 +396,16 @@ class Event(models.Model):
 
     # --- ticket availability -------------------------------------------
 
-    @property
+    @cached_property
     def availability(self):
         """How tickets stand right now, as a dict the templates can render directly.
 
         `state` is one of: free, on_sale, waitlist, sold_out, closed, unavailable.
         The organizer's `ticket_status` override always wins over the derived value.
+
+        Cached per instance: a card reads this for the badge, then again through
+        `tickets_left_display`, `tickets_left_short` and `tickets_tone`. Anything
+        that changes the answer has to call :meth:`forget_counts`.
         """
         def result(state, label, detail, tone):
             return {"state": state, "label": label, "detail": detail, "tone": tone}
@@ -464,6 +530,17 @@ class Event(models.Model):
     def has_sales_points(self):
         return self.outlets.exists()
 
+    def forget_counts(self):
+        """Drop cached attendance figures after something changed them.
+
+        An instance loaded through `with_counts()` carries numbers that were
+        true when the query ran. Register somebody against that same instance
+        and they are quietly out of date — which, for `is_full`, is the
+        difference between selling the last seat once and selling it twice.
+        """
+        for attribute in ("confirmed_count", "reserved_total", "availability"):
+            self.__dict__.pop(attribute, None)
+
     def registration_for(self, user):
         if not user.is_authenticated:
             return None
@@ -497,6 +574,10 @@ class Event(models.Model):
         if not self.registration_open:
             raise ValidationError("Registration for this event is closed.")
 
+        # Everything below turns on is_full, and this instance may be carrying
+        # counts from whenever its queryset ran.
+        self.forget_counts()
+
         existing = self.registrations.filter(user=user).first()
         if existing and existing.status != Registration.Status.CANCELLED:
             return existing
@@ -521,12 +602,14 @@ class Event(models.Model):
             return existing
 
         registration = Registration.objects.create(event=self, user=user, status=status)
+        self.forget_counts()
         self._record_signup(user, status)
 
         # A free event is done the moment they sign up, so the ticket can go out
-        # now. Paid ones wait for the money — settle() sends it then.
+        # now. Paid ones wait for the money — settle() sends it then. Queued, so
+        # a slow mail host doesn't hold up the response that issues the ticket.
         if status == Registration.Status.CONFIRMED:
-            from core.mail import send_ticket_confirmed
+            from core.tasks import send_ticket_confirmed
 
             send_ticket_confirmed(registration)
         return registration
@@ -555,6 +638,7 @@ class Event(models.Model):
         On a paid event they're promoted to *awaiting payment*, not confirmed —
         a freed seat is an invitation to buy, not a free ticket.
         """
+        self.forget_counts()
         if self.is_full or not self.allow_waitlist:
             return None
         nxt = (
@@ -572,12 +656,38 @@ class Event(models.Model):
 
             # Nobody refreshes an event page hoping for a cancellation. Without
             # this the seat sits unclaimed until it times out.
-            from core.mail import send_ticket_confirmed, send_waitlist_promoted
+            from core.tasks import send_ticket_confirmed, send_waitlist_promoted
+            from notifications.tasks import push_waitlist_promoted
 
             send_waitlist_promoted(nxt)
+            # The one notification that is genuinely urgent: the seat is held,
+            # and the hold runs out. An email they read tomorrow is no use.
+            push_waitlist_promoted(nxt)
             if self.is_free:
                 send_ticket_confirmed(nxt)
         return nxt
+
+
+def reserved_seats_q():
+    """Registrations that are holding a seat right now, as a filter.
+
+    Confirmed tickets always count. One awaiting payment counts too, right up
+    until its checkout times out — after that the seat is free again, whether
+    or not anything has got round to writing that down.
+    """
+    from payments.models import Payment
+
+    timed_out = Exists(
+        Payment.objects.filter(
+            registration=OuterRef("pk"),
+            status__in=Payment.OPEN_STATUSES,
+            expires_at__lt=timezone.now(),
+        )
+    )
+
+    return Q(status=Registration.Status.CONFIRMED) | (
+        Q(status=Registration.Status.AWAITING_PAYMENT) & ~timed_out
+    )
 
 
 class TicketOutlet(models.Model):
@@ -664,6 +774,10 @@ class Registration(models.Model):
         related_name="check_ins_performed",
     )
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    # Stamped when the "doors open soon" push goes out, so a cluster that
+    # restarts or catches up can't send it twice. Being nagged is how you get
+    # notifications switched off for good.
+    reminded_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

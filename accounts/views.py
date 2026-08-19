@@ -17,6 +17,7 @@ from django.contrib.auth.views import (
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django_ratelimit.decorators import ratelimit
 
 from events.models import Bookmark, Event, Registration
 
@@ -68,6 +69,10 @@ class VarsityLoginView(LoginView):
         return super().form_invalid(form)
 
 
+# Answers "does this account exist?" to anybody who asks, which is exactly
+# what you'd automate to harvest a list of real students. It has to stay open —
+# the sign-up form calls it before anyone has an account — so bound it instead.
+@ratelimit(key="ip", rate="60/m", block=True)
 def check_availability(request):
     """Live username / email availability for the sign-up form."""
     field = request.GET.get("field", "")
@@ -148,6 +153,7 @@ class VarsityPasswordResetCompleteView(PasswordResetCompleteView):
     template_name = "accounts/password_reset_complete.html"
 
 
+@ratelimit(key="ip", rate="10/h", method="POST", block=True)
 def register(request):
     if request.user.is_authenticated:
         return redirect("core:home")

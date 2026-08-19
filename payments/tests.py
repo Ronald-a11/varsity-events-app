@@ -1,9 +1,14 @@
 import hashlib
 from datetime import timedelta
 from decimal import Decimal
+from io import StringIO
 from unittest.mock import patch
 
+from django.core.cache import cache
+from django.core.management import call_command
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -13,6 +18,7 @@ from organizations.models import Membership, Organization
 
 from .forms import CheckoutForm
 from .models import Payment, expire_stale_payments, total_collected
+from .tasks import release_abandoned_holds
 from .paynow import PaynowClient, PaynowResponse, generate_hash, verify_hash
 from .pesepay import PesepayClient, PesepayCrypto, PesepayResponse, classify
 
@@ -1223,3 +1229,299 @@ class LivePollTests(PaymentTestCase):
         self.assertTrue(result.ok)
         self.assertEqual(result.browser_url, "https://paynow.co.zw/pay/1")
         self.assertEqual(result.poll_url, "https://paynow.co.zw/poll/1")
+
+
+class ReservedCountIsAReadTests(PaymentTestCase):
+    """Counting seats must not write to the database.
+
+    `Event.reserved_count` used to release timed-out holds before counting,
+    which meant that rendering an event card — on a listing, nine at a time —
+    issued UPDATEs on a GET request. It now discounts them in the query and
+    leaves the retiring to payments.tasks.release_abandoned_holds.
+    """
+
+    def timed_out_payment(self):
+        payment = self.make_payment(status=Payment.Status.SENT)
+        payment.expires_at = timezone.now() - timedelta(minutes=1)
+        payment.save()
+        return payment
+
+    def test_counting_seats_issues_no_writes(self):
+        self.timed_out_payment()
+
+        with CaptureQueriesContext(connection) as captured:
+            self.event.reserved_count
+
+        written = [
+            q["sql"]
+            for q in captured.captured_queries
+            if q["sql"].strip().upper().startswith(("UPDATE", "INSERT", "DELETE"))
+        ]
+        self.assertEqual(written, [], f"reading capacity wrote to the database: {written}")
+
+    def test_a_timed_out_hold_stops_counting_immediately(self):
+        """Before anything has swept for it — the seat is free the moment it lapses."""
+        payment = self.timed_out_payment()
+
+        self.assertEqual(self.event.reserved_count, 0)
+        self.assertEqual(self.event.seats_left, 2)
+        self.assertFalse(self.event.is_full)
+
+        # ...and the rows are untouched until the sweep runs.
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.Status.SENT)
+        self.assertEqual(payment.registration.status, Registration.Status.AWAITING_PAYMENT)
+
+    def test_a_live_hold_still_counts(self):
+        self.make_payment(status=Payment.Status.SENT)
+
+        self.assertEqual(self.event.reserved_count, 1)
+        self.assertEqual(self.event.seats_left, 1)
+
+    def test_a_confirmed_ticket_counts_whatever_its_payment_says(self):
+        payment = self.make_payment()
+        payment.apply_paynow_status("Paid")
+        payment.settle()
+        payment.expires_at = timezone.now() - timedelta(minutes=1)
+        payment.save()
+
+        self.assertEqual(self.event.reserved_count, 1)
+
+    def test_a_registration_with_no_payment_yet_holds_its_seat(self):
+        """They've clicked register and haven't reached checkout. Still theirs."""
+        self.event.register(self.student)
+
+        self.assertEqual(self.event.reserved_count, 1)
+
+
+class ReleaseAbandonedHoldsTests(PaymentTestCase):
+    """The scheduled job that does what reading capacity used to do."""
+
+    def test_it_retires_the_hold_and_frees_the_waitlist(self):
+        payment = self.make_payment(status=Payment.Status.SENT)
+        self.event.register(self.other)
+        waiting = self.event.register(make_user("third", university=self.uz))
+        self.assertEqual(waiting.status, Registration.Status.WAITLISTED)
+
+        payment.expires_at = timezone.now() - timedelta(minutes=1)
+        payment.save()
+
+        self.assertEqual(release_abandoned_holds(), 1)
+
+        payment.refresh_from_db()
+        payment.registration.refresh_from_db()
+        waiting.refresh_from_db()
+        self.assertEqual(payment.status, Payment.Status.EXPIRED)
+        self.assertEqual(payment.registration.status, Registration.Status.CANCELLED)
+        self.assertEqual(waiting.status, Registration.Status.AWAITING_PAYMENT)
+
+    def test_it_is_quiet_when_there_is_nothing_to_do(self):
+        self.make_payment(status=Payment.Status.SENT)
+
+        self.assertEqual(release_abandoned_holds(), 0)
+
+    def test_the_management_command_reports_what_it_released(self):
+        payment = self.make_payment(status=Payment.Status.SENT)
+        payment.expires_at = timezone.now() - timedelta(minutes=1)
+        payment.save()
+
+        out = StringIO()
+        call_command("expire_holds", stdout=out)
+
+        self.assertIn("Released 1 abandoned checkout", out.getvalue())
+
+
+@override_settings(RATELIMIT_ENABLE=True)
+class ThrottleTests(PaymentTestCase):
+    """The gateway callback is open to the internet and costs us an API call."""
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_hammering_one_reference_is_throttled_with_a_429(self):
+        payment = self.make_payment(status=Payment.Status.SENT)
+        url = reverse("payments:result", args=[payment.reference])
+
+        with patch("payments.views._sync_pesepay", side_effect=lambda p: p):
+            statuses = [self.client.post(url, {}).status_code for _ in range(14)]
+
+        self.assertIn(200, statuses)
+        self.assertEqual(statuses[-1], 429, "the callback was never throttled")
+
+    def test_a_throttled_caller_is_told_when_to_come_back(self):
+        """429 and Retry-After, not 403 — a gateway retries one and gives up on the other."""
+        payment = self.make_payment(status=Payment.Status.SENT)
+        url = reverse("payments:result", args=[payment.reference])
+
+        with patch("payments.views._sync_pesepay", side_effect=lambda p: p):
+            for _ in range(14):
+                response = self.client.post(url, {})
+
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response["Retry-After"], "60")
+        self.assertFalse(response.json()["ok"])
+
+    def test_the_limit_is_per_payment_not_across_the_platform(self):
+        """One noisy checkout must not stop every other student's payment settling."""
+        first = self.make_payment(status=Payment.Status.SENT)
+        second = self.make_payment(user=self.other, status=Payment.Status.SENT)
+
+        with patch("payments.views._sync_pesepay", side_effect=lambda p: p):
+            for _ in range(14):
+                self.client.post(reverse("payments:result", args=[first.reference]), {})
+            response = self.client.post(
+                reverse("payments:result", args=[second.reference]), {}
+            )
+
+        self.assertEqual(response.status_code, 200)
+
+
+@NO_LIVE_GATEWAYS
+class PollDebounceTests(PaymentTestCase):
+    """The status page polls on a timer; the gateway must not be asked every tick.
+
+    Local state still updates on every poll, so a payment confirmed by callback
+    a second ago is noticed straight away. Only the outbound call is rationed.
+    """
+
+    def make_live_push(self):
+        payment = self.make_payment(
+            status=Payment.Status.SENT,
+            gateway=Payment.Gateway.PESEPAY,
+            method=Payment.Method.ECOCASH,
+            phone="0771234567",
+        )
+        payment.paynow_reference = "PSP-1"
+        payment.expires_at = timezone.now() + timedelta(minutes=20)
+        payment.save()
+        return payment
+
+    def poll_once(self, payment):
+        return self.client.get(
+            reverse("payments:status_json", args=[payment.reference]),
+            headers={"x-requested-with": "XMLHttpRequest"},
+        )
+
+    def test_a_burst_of_polls_asks_the_gateway_once(self):
+        payment = self.make_live_push()
+        self.client.force_login(self.student)
+
+        with patch("payments.views.PesepayClient") as client:
+            client.return_value.check_payment.return_value = PesepayResponse(
+                ok=True, status="PROCESSING", reference="PSP-1"
+            )
+            for _ in range(10):
+                self.poll_once(payment)
+
+            self.assertEqual(
+                client.return_value.check_payment.call_count,
+                1,
+                "ten polls in one second should be one question to Pesepay",
+            )
+
+    def test_the_gateway_is_asked_again_once_the_interval_has_passed(self):
+        payment = self.make_live_push()
+        self.client.force_login(self.student)
+
+        with patch("payments.views.PesepayClient") as client:
+            client.return_value.check_payment.return_value = PesepayResponse(
+                ok=True, status="PROCESSING", reference="PSP-1"
+            )
+            self.poll_once(payment)
+
+            Payment.objects.filter(pk=payment.pk).update(
+                last_polled_at=timezone.now() - timedelta(seconds=30)
+            )
+            self.poll_once(payment)
+
+            self.assertEqual(client.return_value.check_payment.call_count, 2)
+
+    def test_a_payment_settled_by_callback_is_seen_without_asking_again(self):
+        """The debounce must not delay the one thing the student is waiting for."""
+        payment = self.make_live_push()
+        self.client.force_login(self.student)
+
+        with patch("payments.views.PesepayClient") as client:
+            client.return_value.check_payment.return_value = PesepayResponse(
+                ok=True, status="PROCESSING", reference="PSP-1"
+            )
+            self.poll_once(payment)
+
+            # The gateway's callback lands between polls and marks it paid.
+            Payment.objects.filter(pk=payment.pk).update(
+                status=Payment.Status.PAID, paid_at=timezone.now()
+            )
+
+            response = self.poll_once(payment)
+
+            # Still within the debounce window, so no second question...
+            self.assertEqual(client.return_value.check_payment.call_count, 1)
+
+        # ...but the ticket is confirmed and the student is sent to it.
+        body = response.json()
+        self.assertTrue(body["settled"])
+        self.assertTrue(body["ticket_url"])
+        payment.registration.refresh_from_db()
+        self.assertEqual(payment.registration.status, Registration.Status.CONFIRMED)
+
+    def test_the_gateway_callback_itself_is_never_debounced(self):
+        """A nudge from the gateway means something changed — always go and look."""
+        payment = self.make_live_push()
+
+        with patch("payments.views.PesepayClient") as client:
+            client.return_value.check_payment.return_value = PesepayResponse(
+                ok=True, status="PROCESSING", reference="PSP-1"
+            )
+            url = reverse("payments:result", args=[payment.reference])
+            self.client.post(url, {})
+            self.client.post(url, {})
+
+            self.assertEqual(client.return_value.check_payment.call_count, 2)
+
+
+@NO_LIVE_GATEWAYS
+class PollIntervalTests(PaymentTestCase):
+    """The server tells the client when to come back."""
+
+    def state_of(self, payment):
+        self.client.force_login(self.student)
+        return self.client.get(
+            reverse("payments:status_json", args=[payment.reference]),
+            headers={"x-requested-with": "XMLHttpRequest"},
+        ).json()
+
+    def open_payment(self, age_seconds=0):
+        payment = self.make_payment(status=Payment.Status.SENT)
+        payment.expires_at = timezone.now() + timedelta(minutes=20)
+        payment.save()
+        if age_seconds:
+            Payment.objects.filter(pk=payment.pk).update(
+                created_at=timezone.now() - timedelta(seconds=age_seconds)
+            )
+            payment.refresh_from_db()
+        return payment
+
+    def test_it_leans_in_while_a_prompt_is_likely_to_be_answered(self):
+        self.assertEqual(self.state_of(self.open_payment())["retry_in"], 2)
+
+    def test_it_eases_off_once_the_prompt_has_been_sitting(self):
+        self.assertEqual(self.state_of(self.open_payment(age_seconds=45))["retry_in"], 5)
+
+    def test_it_backs_right_off_after_a_couple_of_minutes(self):
+        self.assertEqual(self.state_of(self.open_payment(age_seconds=200))["retry_in"], 10)
+
+    def test_a_settled_payment_tells_the_client_to_stop(self):
+        payment = self.make_payment()
+        payment.apply_paynow_status("Paid")
+        payment.settle()
+
+        self.assertEqual(self.state_of(payment)["retry_in"], 0)
+
+    def test_a_dead_payment_tells_the_client_to_stop(self):
+        payment = self.make_payment(status=Payment.Status.SENT)
+        payment.expires_at = timezone.now() - timedelta(minutes=1)
+        payment.save()
+
+        self.assertEqual(self.state_of(payment)["retry_in"], 0)

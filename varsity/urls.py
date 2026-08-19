@@ -12,6 +12,8 @@ urlpatterns = [
     path("events/", include("events.urls")),
     path("societies/", include("organizations.urls")),
     path("pay/", include("payments.urls")),
+    path("live/", include("activity.urls")),
+    path("notifications/", include("notifications.urls")),
 ]
 
 if settings.DEBUG or settings.SERVE_MEDIA:

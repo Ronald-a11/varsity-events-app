@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Slow down · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-md px-4 py-24 text-center sm:px-6">
+    <p class="text-6xl font-extrabold text-brand-600">429</p>
+    <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-ink">That was a bit quick</h1>
+    <p class="mt-2 text-sm text-ink-subtle">
+      We've had a lot of requests from you in a short space of time, so we've paused for a
+      minute. Nothing is wrong with your account — wait a moment and try again.
+    </p>
+    <div class="mt-8 flex justify-center gap-3">
+      <a href="{% url 'events:list' %}" class="btn-primary">Browse events</a>
+      <a href="{% url 'core:home' %}" class="btn-secondary">Go home</a>
+    </div>
+  </div>
+{% endblock %}

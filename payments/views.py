@@ -6,8 +6,10 @@ from django.db import transaction
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse  # noqa: F401  (used for redirects and breadcrumbs)
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 
 from events.models import Event, Registration
 
@@ -19,6 +21,17 @@ from .paynow import PaynowClient, verify_hash
 from .pesepay import PesepayClient, PesepayError
 
 logger = logging.getLogger(__name__)
+
+
+def _by_reference(group, request):
+    """Throttle key: the payment in the URL.
+
+    Per-IP alone isn't enough for the gateway callback, which anyone on the
+    internet may POST to. Keyed on the reference as well, one payment can't be
+    used to drive an unbounded number of outbound calls to Pesepay.
+    """
+    match = getattr(request, "resolver_match", None)
+    return (match.kwargs.get("reference", "") if match else "") or request.path
 
 
 def _absolute(request, name, **kwargs):
@@ -52,28 +65,56 @@ def _push_payload(payment):
     }
 
 
-def _sync(payment: Payment) -> Payment:
-    """Bring a payment up to date with its gateway, and settle the ticket if paid."""
+def _resolve_locally(payment: Payment) -> Payment:
+    """Act on what we already know, without asking anyone.
+
+    A payment can have been settled by the gateway's callback, or simply run out
+    of time, since the row was last looked at. Neither needs a network call to
+    notice.
+    """
+    if payment.is_settled:
+        payment.settle()
+    elif payment.has_expired:
+        payment.expire()
+    return payment
+
+
+def _asked_recently(payment: Payment, min_interval: int) -> bool:
+    """Whether the gateway has been asked about this payment within `min_interval`.
+
+    The status page polls every few seconds and each poll used to mean an
+    outbound call, so a two-minute checkout asked Pesepay about forty times
+    about one transaction. The gateway is the slowest thing in the request and
+    the only one with a quota, and nothing it could say changes that fast.
+    """
+    if not min_interval or not payment.last_polled_at:
+        return False
+    age = (timezone.now() - payment.last_polled_at).total_seconds()
+    return age < min_interval
+
+
+def _sync(payment: Payment, min_interval: int = 0) -> Payment:
+    """Bring a payment up to date with its gateway, and settle the ticket if paid.
+
+    `min_interval` throttles the outbound call only — local transitions still
+    happen every time, so a payment confirmed by callback a moment ago is picked
+    up on the next poll whether or not we ask the gateway again. Callers acting
+    on a nudge from the gateway itself pass nothing and always get a fresh read.
+    """
     # Direct transfers are settled by a person, not a gateway — nothing to poll.
     if payment.is_manual:
-        if payment.is_settled:
-            payment.settle()
-        elif payment.has_expired:
-            payment.expire()
-        return payment
+        return _resolve_locally(payment)
+
+    if payment.is_simulated or not payment.is_open:
+        return _resolve_locally(payment)
+
+    if _asked_recently(payment, min_interval):
+        return _resolve_locally(payment)
 
     if payment.gateway == Payment.Gateway.PESEPAY:
         return _sync_pesepay(payment)
 
-    if payment.is_simulated or not payment.is_open:
-        if payment.is_settled:
-            payment.settle()
-        elif payment.has_expired:
-            payment.expire()
-        return payment
-
-    client = PaynowClient()
-    result = client.poll(payment.poll_url)
+    result = PaynowClient().poll(payment.poll_url)
 
     if result.ok and result.status:
         payment.apply_paynow_status(result.status, result.paynow_reference)
@@ -88,11 +129,7 @@ def _sync(payment: Payment) -> Payment:
 def _sync_pesepay(payment: Payment) -> Payment:
     """Ask Pesepay for the current status of this transaction."""
     if payment.is_simulated or not payment.is_open:
-        if payment.is_settled:
-            payment.settle()
-        elif payment.has_expired:
-            payment.expire()
-        return payment
+        return _resolve_locally(payment)
 
     result = PesepayClient().check_payment(payment.paynow_reference)
 
@@ -106,7 +143,29 @@ def _sync_pesepay(payment: Payment) -> Payment:
     return payment
 
 
+def _retry_in(payment: Payment) -> int:
+    """How many seconds the client should wait before asking again. 0 means stop.
+
+    A wallet prompt is usually approved in the first half-minute or not for a
+    while, so the client leans in early and backs off after. Sending the interval
+    from here rather than hard-coding it in three templates means the pace can be
+    changed without a deploy of the front end, and a struggling gateway can be
+    given room by widening it.
+    """
+    if payment.is_settled or not payment.is_open:
+        return 0
+
+    waiting_for = (timezone.now() - payment.created_at).total_seconds()
+
+    if waiting_for < 30:
+        return 2
+    if waiting_for < 90:
+        return 5
+    return 10
+
+
 @login_required
+@ratelimit(key="user", rate="12/m", method="POST", block=True)
 def checkout(request, slug):
     """Pick a payment method and hand off to Pesepay."""
     event = get_object_or_404(Event, slug=slug)
@@ -354,6 +413,9 @@ def verification_queue(request):
 
 @login_required
 @require_POST
+# One prompt at a time on a real phone. Without a limit this is a button that
+# spams somebody's handset for as long as you hold it down.
+@ratelimit(key="user", rate="5/m", method="POST", block=True)
 def resend_prompt(request, reference):
     """Push the wallet prompt again — same payment, no second charge.
 
@@ -428,13 +490,17 @@ def payment_status(request, reference):
 
 
 @login_required
+@ratelimit(key="user", rate="60/m", block=True)
 def payment_status_json(request, reference):
     """Polled by the status page so it can move on the moment payment lands."""
     payment = get_object_or_404(Payment, reference=reference)
     if payment.user != request.user:
         raise Http404("No payment matches the given query.")
 
-    _sync(payment)
+    # Throttled: this is the one caller that fires on a timer rather than in
+    # response to something happening, so it is the one that has to be polite
+    # about how often it reaches Pesepay.
+    _sync(payment, min_interval=settings.PAYMENT_POLL_MIN_SECONDS)
 
     return JsonResponse(
         {
@@ -444,6 +510,9 @@ def payment_status_json(request, reference):
             "open": payment.is_open,
             "expired": payment.has_expired,
             "ticket_url": payment.registration.get_absolute_url() if payment.is_settled else "",
+            # The client asks again after this many seconds. Zero means there is
+            # nothing left to wait for.
+            "retry_in": _retry_in(payment),
         }
     )
 
@@ -468,6 +537,12 @@ def payment_return(request, reference):
 
 @csrf_exempt
 @require_POST
+# Unauthenticated by necessity, and each call makes us ask Pesepay about the
+# transaction — so it is a free lever on our gateway quota for anyone who finds
+# it. Both limits sit far above what a real gateway sends: it retries a handful
+# of times per payment, not hundreds.
+@ratelimit(key="ip", rate="120/m", method="POST", block=True)
+@ratelimit(key=_by_reference, rate="12/m", method="POST", block=True)
 def payment_result(request, reference):
     """The gateway's server-to-server callback.
 

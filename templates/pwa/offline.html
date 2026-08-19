@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Offline · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-md px-4 py-24 text-center sm:px-6">
+    <p class="text-5xl">📡</p>
+    <h1 class="mt-4 text-2xl font-extrabold tracking-tight text-ink">You're offline</h1>
+    <p class="mt-2 text-sm text-ink-subtle">
+      This page needs a connection. Anything you've opened before is still here, and
+      <strong class="font-semibold text-ink">every ticket you've looked at is saved to this
+      device</strong> — including its QR code.
+    </p>
+
+    <div class="mt-8 flex justify-center gap-3">
+      <a href="{{ tickets_url }}" class="btn-primary">My tickets</a>
+      <button type="button" onclick="window.location.reload()" class="btn-secondary">Try again</button>
+    </div>
+
+    <p class="mt-8 text-xs text-ink-subtle" data-online-note hidden>
+      You're back online.
+    </p>
+  </div>
+
+  <script>
+    // The browser knows before the user does.
+    window.addEventListener("online", () => {
+      document.querySelector("[data-online-note]")?.removeAttribute("hidden");
+      setTimeout(() => window.location.reload(), 600);
+    });
+  </script>
+{% endblock %}

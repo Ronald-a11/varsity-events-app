@@ -202,3 +202,134 @@ class SimulatorTests(ActivityTestCase):
         User.objects.filter(role=User.Role.STUDENT).delete()
         with self.assertRaises(CommandError):
             self.run_command(burst=5)
+
+
+class LiveBoardTests(ActivityTestCase):
+    """The board the README has been advertising."""
+
+    def test_it_renders(self):
+        self.event.register(self.student)
+
+        response = self.client.get(reverse("activity:live"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Test Hackathon")
+
+    def test_it_is_public(self):
+        """No sign-in wall: it's the shop window."""
+        response = self.client.get(reverse("activity:live"))
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_an_empty_stream_says_so_rather_than_looking_broken(self):
+        response = self.client.get(reverse("activity:live"))
+
+        self.assertContains(response, "Nothing yet")
+
+    def test_private_rows_stay_off_it(self):
+        record(Activity.Verb.REGISTERED, actor=self.student, event=self.event, is_public=False)
+
+        response = self.client.get(reverse("activity:live"))
+
+        self.assertNotContains(response, "Tanaka")
+
+    def test_it_counts_what_is_on_right_now(self):
+        now = timezone.now()
+        Event.objects.create(
+            title="Running Now",
+            organization=self.org,
+            created_by=self.organizer,
+            starts_at=now - timedelta(hours=1),
+            ends_at=now + timedelta(hours=1),
+            status=Event.Status.PUBLISHED,
+        )
+
+        response = self.client.get(reverse("activity:live"))
+
+        self.assertEqual(response.context["stats"]["happening_now"], 1)
+
+
+class FeedTests(ActivityTestCase):
+    """Incremental paging by id — no timestamps, no overlap, no duplicates."""
+
+    def feed(self, since=None):
+        params = {"since": since} if since is not None else {}
+        return self.client.get(reverse("activity:feed"), params).json()
+
+    def test_it_hands_back_everything_when_nothing_has_been_seen(self):
+        self.event.register(self.student)
+
+        body = self.feed(0)
+
+        self.assertTrue(body["rows"])
+        self.assertEqual(body["last_id"], Activity.objects.order_by("-pk").first().pk)
+
+    def test_it_returns_only_what_is_new(self):
+        self.event.register(self.student)
+        seen = Activity.objects.order_by("-pk").first().pk
+
+        self.assertEqual(self.feed(seen)["rows"], [])
+
+        self.event.register(make_user("later", university=self.uz))
+        rows = self.feed(seen)["rows"]
+
+        self.assertTrue(rows)
+        self.assertTrue(all(row["id"] > seen for row in rows))
+
+    def test_rows_come_back_oldest_first_so_prepending_keeps_the_order(self):
+        """Newest-first would land them upside down on the board."""
+        for name in ("a", "b", "c"):
+            self.event.register(make_user(name, university=self.uz))
+
+        rows = self.feed(0)["rows"]
+        ids = [row["id"] for row in rows]
+
+        self.assertEqual(ids, sorted(ids))
+
+    def test_a_client_that_has_been_away_gets_the_newest_slice(self):
+        """Not the oldest unseen rows — it would crawl back an hour at a time."""
+        from .views import MAX_NEW_ROWS
+
+        for index in range(MAX_NEW_ROWS + 12):
+            record(Activity.Verb.SAVED, actor=self.student, event=self.event)
+
+        body = self.feed(0)
+        newest = Activity.objects.order_by("-pk").first().pk
+
+        self.assertEqual(len(body["rows"]), MAX_NEW_ROWS)
+        self.assertEqual(body["rows"][-1]["id"], newest)
+
+    def test_private_rows_never_reach_it(self):
+        record(Activity.Verb.REGISTERED, actor=self.student, event=self.event, is_public=False)
+
+        self.assertEqual(self.feed(0)["rows"], [])
+
+    def test_a_nonsense_since_is_treated_as_the_beginning(self):
+        """It comes off a querystring; it must not 500."""
+        self.event.register(self.student)
+
+        for bad in ("", "abc", "-1", "9e9", "'; DROP TABLE"):
+            with self.subTest(since=bad):
+                response = self.client.get(reverse("activity:feed"), {"since": bad})
+                self.assertEqual(response.status_code, 200)
+
+    def test_the_last_id_holds_when_nothing_is_new(self):
+        """Otherwise the client would rewind to zero and replay the whole board."""
+        self.event.register(self.student)
+        seen = Activity.objects.order_by("-pk").first().pk
+
+        self.assertEqual(self.feed(seen)["last_id"], seen)
+
+    def test_it_slows_down_when_nothing_is_happening(self):
+        self.event.register(self.student)
+        seen = Activity.objects.order_by("-pk").first().pk
+
+        self.assertGreater(self.feed(seen)["retry_in"], self.feed(0)["retry_in"])
+
+    def test_a_row_carries_everything_the_ticker_needs(self):
+        self.event.register(self.student)
+
+        row = self.feed(0)["rows"][0]
+
+        for key in ("id", "actor", "phrase", "target", "url", "icon", "tone", "ago"):
+            self.assertIn(key, row)

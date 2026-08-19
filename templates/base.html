@@ -30,6 +30,14 @@
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>"
     />
+
+    {# Installable to a home screen, and tickets work without a signal. #}
+    <link rel="manifest" href="{% url 'core:manifest' %}" />
+    {# iOS reads none of the manifest's icons; it wants this link instead. #}
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="{{ SITE_NAME_LEAD|title }}" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     {# Without JS the observer never fires, so reveal elements must start visible. #}
     <noscript>
       <style>
@@ -216,6 +224,22 @@
         form.querySelectorAll("[data-saved-on]").forEach((el) => el.classList.toggle("hidden", !bookmarked));
         form.querySelectorAll("[data-saved-off]").forEach((el) => el.classList.toggle("hidden", bookmarked));
       });
+    </script>
+
+    <script>
+      /* ---------------------------------------------------------------
+         Service worker
+         Registered after load, so it never competes with the page it's
+         meant to make faster. See core/pwa.py for what it does and, more
+         importantly, what it refuses to cache.
+      --------------------------------------------------------------- */
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("{% url 'core:service_worker' %}").catch(() => {
+            /* An unsupported or blocked worker just means no offline tickets. */
+          });
+        });
+      }
     </script>
     {% block extra_scripts %}{% endblock %}
   </body>

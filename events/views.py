@@ -1,9 +1,7 @@
 import csv
 import datetime as dt
-from io import BytesIO
 from urllib.parse import urlencode
 
-import qrcode
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -15,6 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import dateformat, timezone
 from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 
 from accounts.models import University
 from activity.models import Activity, record
@@ -29,13 +28,19 @@ from .forms import (
     ReviewForm,
     TicketOutletFormSet,
 )
+from . import qr
 from .models import Bookmark, Category, Event, Registration, Review, TicketStatus
+from .search import search_events, supports_full_text
 
 SORT_OPTIONS = {
     "soonest": ("starts_at", "Starting soonest"),
     "popular": ("-confirmed_count", "Most popular"),
     "newest": ("-created_at", "Recently added"),
 }
+
+# Only offered once there's something to be relevant to, and only where the
+# database can rank — on SQLite the search is a LIKE with nothing to sort by.
+RELEVANCE_SORT = ("-relevance", "Best match")
 
 PAGE_SIZES = (12, 24, 48)
 
@@ -152,17 +157,11 @@ def event_list(request, gig_guide=False):
     org = request.GET.get("org", "")
     tickets = request.GET.get("tickets", "")
     show = request.GET.get("show", "upcoming")
-    sort = request.GET.get("sort", "soonest")
 
+    # Postgres ranks; SQLite falls back to LIKE. See events/search.py.
+    ranked = bool(query) and supports_full_text(qs.db)
     if query:
-        qs = qs.filter(
-            Q(title__icontains=query)
-            | Q(summary__icontains=query)
-            | Q(description__icontains=query)
-            | Q(tags__icontains=query)
-            | Q(organization__name__icontains=query)
-            | Q(venue__name__icontains=query)
-        )
+        qs = search_events(qs, query)
 
     if category:
         qs = qs.filter(category__slug=category)
@@ -204,9 +203,24 @@ def event_list(request, gig_guide=False):
         elif when == "month":
             qs = qs.filter(starts_at__lte=now + timezone.timedelta(days=30))
 
+    # Somebody who has typed a search wants the best match first, not whatever
+    # happens to start soonest — but only until they pick a sort themselves.
+    sort_options = {**SORT_OPTIONS}
+    if ranked:
+        sort_options = {"relevance": RELEVANCE_SORT, **SORT_OPTIONS}
+
+    sort = request.GET.get("sort", "relevance" if ranked else "soonest")
+    if sort not in sort_options:
+        sort = "relevance" if ranked else "soonest"
+
     if show != "past":
-        order_field = SORT_OPTIONS.get(sort, SORT_OPTIONS["soonest"])[0]
-        qs = qs.order_by(order_field)
+        order_field = sort_options[sort][0]
+        # search_events already ordered by rank; naming the annotation again
+        # would be harmless but this keeps the tie-break on starts_at.
+        if sort == "relevance":
+            qs = qs.order_by("-relevance", "starts_at")
+        else:
+            qs = qs.order_by(order_field)
 
     try:
         per_page = int(request.GET.get("per_page", 12))
@@ -303,7 +317,7 @@ def event_list(request, gig_guide=False):
         ),
         "universities": University.objects.all(),
         "organizations": Organization.objects.filter(is_active=True).order_by("name"),
-        "sort_options": SORT_OPTIONS,
+        "sort_options": sort_options,
         "active_filters": active_filters,
         "querystring": querystring.urlencode(),
         "selected": {
@@ -396,6 +410,10 @@ def event_detail(request, slug):
 
 @login_required
 @require_POST
+# A seat on a paid event is held the moment this returns, so a script could
+# otherwise claim a small event's entire capacity across throwaway accounts
+# faster than anybody could buy one.
+@ratelimit(key="user", rate="20/m", method="POST", block=True)
 def register_for_event(request, slug):
     event = get_object_or_404(Event, slug=slug)
 
@@ -506,7 +524,18 @@ def ticket_detail(request, code):
     if registration.user != request.user and not registration.event.can_manage(request.user):
         raise Http404("No ticket matches the given query.")
 
-    return render(request, "events/ticket.html", {"registration": registration})
+    return render(
+        request,
+        "events/ticket.html",
+        {
+            "registration": registration,
+            # Inline rather than a second request: this page is what a student
+            # holds up at a gate, quite possibly with no signal, and an <img>
+            # pointing at our own endpoint is one more thing that can fail on
+            # its own. See events/qr.py.
+            "qr_data_uri": qr.data_uri(registration),
+        },
+    )
 
 
 @login_required
@@ -517,13 +546,7 @@ def ticket_qr(request, code):
     if registration.user != request.user and not registration.event.can_manage(request.user):
         raise Http404("No ticket matches the given query.")
 
-    img = qrcode.make(
-        request.build_absolute_uri(registration.get_absolute_url()), box_size=8, border=2
-    )
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-
-    response = HttpResponse(buffer.getvalue(), content_type="image/png")
+    response = HttpResponse(qr.png_bytes(registration), content_type="image/png")
     response["Cache-Control"] = "private, max-age=86400"
     return response
 

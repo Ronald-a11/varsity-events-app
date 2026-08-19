@@ -8,9 +8,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import dateformat, timezone
 from django.utils.timezone import localtime
 from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 
 from accounts.models import University, User
 from events.models import Category, Event, Registration, TicketStatus
+from events.search import search_events
 from organizations.models import Organization
 
 
@@ -148,6 +150,7 @@ def about(request):
     return render(request, "core/about.html")
 
 
+@ratelimit(key="ip", rate="120/m", block=True)
 def quick_search(request):
     """Feeds the ⌘K palette: events, societies and universities in one list."""
     query = request.GET.get("q", "").strip()
@@ -156,16 +159,12 @@ def quick_search(request):
 
     results = []
 
-    events = (
+    events = search_events(
         Event.objects.published()
         .upcoming()
-        .filter(
-            Q(title__icontains=query)
-            | Q(summary__icontains=query)
-            | Q(tags__icontains=query)
-        )
-        .select_related("organization", "organization__university", "category")[:6]
-    )
+        .select_related("organization", "organization__university", "category"),
+        query,
+    )[:6]
     for event in events:
         results.append(
             {
@@ -402,3 +401,23 @@ def handler404(request, exception=None):
 
 def handler500(request):
     return render(request, "core/500.html", status=500)
+
+
+def ratelimited(request, exception=None):
+    """What a caller sees when it has been throttled.
+
+    A 429 rather than the 403 django-ratelimit raises by default: being asked
+    to slow down is not the same as being refused, and the difference decides
+    whether a payment gateway retries its callback or gives up on it.
+    """
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.path.endswith(
+        (".json", "/result/")
+    ):
+        response = JsonResponse(
+            {"ok": False, "error": "Too many requests. Please slow down."}, status=429
+        )
+    else:
+        response = render(request, "core/429.html", status=429)
+
+    response["Retry-After"] = "60"
+    return response

@@ -1,12 +1,18 @@
 from django.urls import path
 
-from . import views
+from . import pwa, views
 
 app_name = "core"
 
 urlpatterns = [
     path("", views.home, name="home"),
     path("healthz", views.healthz, name="healthz"),
+    # Installability and offline tickets. sw.js has to answer from the root:
+    # a service worker can only control pages at or below its own path, so one
+    # served out of /static/ would control nothing that matters.
+    path("sw.js", pwa.service_worker, name="service_worker"),
+    path("manifest.webmanifest", pwa.manifest, name="manifest"),
+    path("offline/", pwa.offline, name="offline"),
     path("discover/", views.discover, name="discover"),
     path("about/", views.about, name="about"),
     path("search.json", views.quick_search, name="quick_search"),

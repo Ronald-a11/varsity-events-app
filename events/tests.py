@@ -1,7 +1,9 @@
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -807,3 +809,127 @@ class AccountTests(EventTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("_auth_user_id", self.client.session)
         cache.clear()
+
+
+class ListingQueryCountTests(EventTestCase):
+    """A listing must not get more expensive as it gets longer.
+
+    Every card asks for `availability`, which asks `is_full`, which asks
+    `reserved_count`. That used to be a query per card — and, before the read
+    was separated from the write, a set of UPDATEs per card as well. The counts
+    now come from `with_counts()`, so the page costs the same whether it shows
+    one event or twenty.
+    """
+
+    def make_events(self, count, **extra):
+        now = timezone.now()
+        for index in range(count):
+            event = Event.objects.create(
+                title=f"Event {index}",
+                organization=self.org,
+                created_by=self.organizer,
+                category=self.category,
+                starts_at=now + timedelta(days=index + 1),
+                ends_at=now + timedelta(days=index + 1, hours=3),
+                status=Event.Status.PUBLISHED,
+                capacity=50,
+                **extra,
+            )
+            Registration.objects.create(
+                event=event, user=self.student, status=Registration.Status.CONFIRMED
+            )
+
+    def count_queries_for(self, count):
+        Event.objects.all().delete()
+        self.make_events(count)
+
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.get(reverse("events:list"))
+
+        self.assertEqual(response.status_code, 200)
+        return len(captured.captured_queries)
+
+    def test_the_listing_does_not_get_dearer_with_more_events(self):
+        few = self.count_queries_for(3)
+        many = self.count_queries_for(12)
+
+        self.assertEqual(
+            few,
+            many,
+            f"listing 12 events cost {many} queries against {few} for 3 — "
+            "the per-card count is querying again",
+        )
+
+    def test_a_listing_issues_no_writes(self):
+        self.make_events(6)
+
+        with CaptureQueriesContext(connection) as captured:
+            self.client.get(reverse("events:list"))
+
+        written = [
+            q["sql"]
+            for q in captured.captured_queries
+            if q["sql"].strip().upper().startswith(("UPDATE", "INSERT", "DELETE"))
+        ]
+        self.assertEqual(written, [], f"a listing wrote to the database: {written}")
+
+    def test_the_annotated_figure_matches_the_unannotated_one(self):
+        """The two ways of counting a seat have to agree, or a card and its page differ."""
+        self.make_events(1)
+        event = Event.objects.get(title="Event 0")
+        Registration.objects.create(
+            event=event, user=self.other, status=Registration.Status.AWAITING_PAYMENT
+        )
+
+        annotated = Event.objects.with_counts().get(pk=event.pk)
+        plain = Event.objects.get(pk=event.pk)
+
+        self.assertEqual(annotated.reserved_count, plain.reserved_count)
+        self.assertEqual(annotated.attendee_count, plain.attendee_count)
+        self.assertEqual(annotated.reserved_count, 2)
+
+
+class StaleCountTests(EventTestCase):
+    """An annotated instance is carrying numbers from when its query ran."""
+
+    def setUp(self):
+        super().setUp()
+        self.event.capacity = 2
+        self.event.is_free = True
+        self.event.save()
+
+    def test_registering_against_an_annotated_event_sees_its_own_effect(self):
+        """Otherwise the last seat sells twice: is_full would still read the old count."""
+        event = Event.objects.with_counts().get(pk=self.event.pk)
+
+        event.register(self.student)
+        event.register(self.other)
+        third = event.register(make_user("third", university=self.uz))
+
+        self.assertEqual(third.status, Registration.Status.WAITLISTED)
+
+    def test_forgetting_the_counts_falls_back_to_asking_the_database(self):
+        event = Event.objects.with_counts().get(pk=self.event.pk)
+        self.assertEqual(event.reserved_count, 0)
+
+        Registration.objects.create(
+            event=event, user=self.student, status=Registration.Status.CONFIRMED
+        )
+
+        self.assertEqual(event.reserved_count, 0, "the annotation should still be cached")
+        event.forget_counts()
+        self.assertEqual(event.reserved_count, 1)
+
+    def test_availability_is_recomputed_after_the_counts_are_dropped(self):
+        event = Event.objects.with_counts().get(pk=self.event.pk)
+        self.assertEqual(event.availability["state"], "free")
+
+        for name in ("one", "two"):
+            Registration.objects.create(
+                event=event,
+                user=make_user(name, university=self.uz),
+                status=Registration.Status.CONFIRMED,
+            )
+        event.forget_counts()
+
+        self.assertEqual(event.availability["state"], "waitlist")

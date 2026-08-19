@@ -66,7 +66,18 @@ jobs:
       - name: Run the tests
         env:
           DATABASE_URL: ${{ matrix.db == 'postgres' && 'postgres://postgres:postgres@localhost:5432/varsity_test' || '' }}
-        run: python manage.py test --shuffle --verbosity 2
+        run: |
+          # Failures are echoed back as ::error:: annotations, not just left in
+          # the log. GitHub requires a token to read Actions logs even on a
+          # public repo, but annotations are readable without one — so a red
+          # build can be diagnosed from the API, and from a machine that isn't
+          # the one that pushed it.
+          if ! python manage.py test --shuffle --verbosity 2 > tests.log 2>&1; then
+            tail -80 tests.log
+            grep -E '^(FAIL|ERROR):|^[A-Za-z_.]*(Error|Exception):|^FAILED|shuffle seed' tests.log               | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
+          tail -4 tests.log
 
   deploy-check:
     name: Production settings

@@ -92,6 +92,10 @@ jobs:
         env:
           DJANGO_DEBUG: "False"
           DJANGO_ALLOWED_HOSTS: varsityevents.app
+          # Blanked deliberately. The workflow-level env above sets a key for
+          # every step, so without this the check tests nothing: the app boots
+          # fine and the assertion fails on its own success.
+          DJANGO_SECRET_KEY: ""
         run: |
           if python manage.py check 2>/dev/null; then
             echo "::error::settings booted with no DJANGO_SECRET_KEY set"

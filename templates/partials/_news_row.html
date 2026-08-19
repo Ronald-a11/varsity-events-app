@@ -35,7 +35,11 @@ Pass `event` and `counter` (the number to print).
     </div>
 
     <h3 class="mt-2 font-display text-lg font-extrabold leading-tight tracking-tight text-ink sm:text-2xl">
-      <a href="{{ event.get_absolute_url }}" class="transition hover:text-brand-600 dark:hover:text-brand-400">
+      {% comment %} The whole row opens the event; the article above is the positioning
+         context. Every other link in here points at the same place, so
+         nothing needs lifting above it. {% endcomment %}
+      <a href="{{ event.get_absolute_url }}"
+         class="transition after:absolute after:inset-0 after:content-[''] hover:text-brand-600 dark:hover:text-brand-400">
         {{ event.title }}
       </a>
     </h3>

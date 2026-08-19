@@ -1,5 +1,5 @@
 {# A featured event as a full-width horizontal card, for stacking in a column. #}
-<article class="card card-hover group grid overflow-hidden sm:grid-cols-[minmax(0,18rem)_1fr] lg:grid-cols-[minmax(0,22rem)_1fr] reveal">
+<article class="card card-hover group relative grid overflow-hidden sm:grid-cols-[minmax(0,18rem)_1fr] lg:grid-cols-[minmax(0,22rem)_1fr] reveal">
   <a href="{{ event.get_absolute_url }}" class="relative block aspect-[16/10] overflow-hidden bg-surface-3 sm:aspect-auto sm:min-h-[13rem]">
     {% if event.banner %}
       <img src="{{ event.banner.url }}" alt="{{ event.title }}"
@@ -45,7 +45,9 @@
     </div>
 
     <h3 class="mt-2 font-display text-xl font-extrabold leading-tight tracking-tight text-ink sm:text-2xl">
-      <a href="{{ event.get_absolute_url }}" class="transition hover:text-brand-600 dark:hover:text-brand-400">{{ event.title }}</a>
+      {# The whole card opens the event. #}
+      <a href="{{ event.get_absolute_url }}"
+         class="transition after:absolute after:inset-0 after:content-[''] hover:text-brand-600 dark:hover:text-brand-400">{{ event.title }}</a>
     </h3>
 
     {% if event.summary %}

@@ -1,5 +1,5 @@
-﻿{% load humanize %}
-<article class="card card-hover group flex flex-col overflow-hidden reveal">
+{% load humanize %}
+<article class="card card-hover group relative flex flex-col overflow-hidden reveal">
   <a href="{{ event.get_absolute_url }}" class="relative block aspect-[16/9] overflow-hidden bg-surface-3">
     {% if event.banner %}
       <img src="{{ event.banner.url }}" alt="{{ event.title }}"
@@ -69,7 +69,13 @@
     </div>
 
     <h3 class="font-display text-base font-bold leading-snug tracking-tight text-ink">
-      <a href="{{ event.get_absolute_url }}" class="transition hover:text-brand-500">{{ event.title }}</a>
+      {% comment %} The whole card opens the event. Stretching this link over the article
+         rather than wrapping everything in one <a>, because the card also holds
+         a link to the society and a save button — nesting those inside an
+         anchor is invalid HTML and browsers recover from it unpredictably.
+         Anything that needs its own click sits above this on z-10. {% endcomment %}
+      <a href="{{ event.get_absolute_url }}"
+         class="transition after:absolute after:inset-0 after:content-[''] hover:text-brand-500">{{ event.title }}</a>
     </h3>
 
     {% if event.summary %}
@@ -99,7 +105,7 @@
     {% endif %}
 
     <div class="mt-4 flex items-center justify-between gap-2 border-t border-hairline pt-3">
-      <a href="{{ event.organization.get_absolute_url }}" class="flex min-w-0 items-center gap-2 group/org">
+      <a href="{{ event.organization.get_absolute_url }}" class="relative z-10 flex min-w-0 items-center gap-2 group/org">
         {% if event.organization.logo %}
           <img src="{{ event.organization.logo.url }}" alt="" class="h-6 w-6 rounded-lg object-cover" />
         {% else %}
@@ -111,7 +117,7 @@
         {% endif %}
       </a>
 
-      <div class="flex shrink-0 items-center gap-1.5">
+      <div class="relative z-10 flex shrink-0 items-center gap-1.5">
         {% if event.tickets_left_short %}
           <span class="text-2xs font-semibold text-{{ event.tickets_tone }}-600 dark:text-{{ event.tickets_tone }}-400">
             {{ event.tickets_left_short }}

@@ -31,9 +31,7 @@ RUN DJANGO_SECRET_KEY=build-only-not-a-real-secret \
 
 EXPOSE 8000
 
-# Railway injects $PORT. Shell form so it expands.
-CMD gunicorn varsity.wsgi \
-      --bind 0.0.0.0:${PORT:-8000} \
-      --workers 3 \
-      --timeout 60 \
-      --access-logfile -
+# One image, two jobs — web or task cluster, chosen by PROCESS_TYPE at runtime.
+# Unset means web, so anything already deployed is unaffected.
+RUN chmod +x /app/docker-entrypoint.sh
+CMD ["/app/docker-entrypoint.sh"]

@@ -531,6 +531,18 @@ if SENTRY_DSN:
     )
 
 
+# Reading an event off its poster
+#
+# Organizers and platform staff upload the artwork the society already made,
+# and get the create-event form filled in for them to check. Extraction only —
+# see events/poster.py for why nothing here is ever saved unreviewed.
+#
+# Blank key, and the route hides itself; typing an event in by hand is
+# unaffected. Same rule as every other optional piece of infrastructure here.
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-5").strip()
+
+
 # Two-factor authentication
 #
 # Enforced on the views that can release money — see accounts/twofactor.py.

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Start from a poster · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-lg px-4 py-12 sm:px-6">
+    <a href="{% url 'events:create' %}" class="text-sm text-ink-subtle hover:text-brand-600">← Type it in instead</a>
+
+    <h1 class="mt-3 text-2xl font-extrabold tracking-tight text-ink">Start from a poster</h1>
+    <p class="mt-2 text-sm text-ink-subtle">
+      Upload the artwork you've already made and we'll read the details off it. You'll get the
+      normal form, filled in, to check before anything is saved.
+    </p>
+
+    <form method="post" enctype="multipart/form-data" class="mt-8" data-auth-form>
+      {% csrf_token %}
+
+      <label
+        class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-hairline bg-surface-2 px-6 py-12 text-center transition hover:border-brand-400 hover:bg-surface-3"
+        data-drop
+      >
+        <span class="text-4xl">🖼️</span>
+        <span class="mt-3 text-sm font-semibold text-ink" data-label>Choose the poster</span>
+        <span class="mt-1 text-xs text-ink-subtle">JPEG, PNG or WebP · up to 5 MB</span>
+        <input type="file" name="poster" accept="image/jpeg,image/png,image/webp" required class="sr-only" data-file />
+      </label>
+
+      <img class="mt-4 hidden w-full rounded-2xl border border-hairline" data-preview alt="" />
+
+      {% if error %}
+        <p class="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400">
+          {{ error }}
+        </p>
+      {% endif %}
+
+      <button type="submit" class="btn-primary mt-6 w-full">Read the poster</button>
+
+      <p class="mt-4 text-xs text-ink-subtle">
+        Only you see the result. Nothing is published until you review the form and submit it,
+        and it still goes through the usual checks.
+      </p>
+    </form>
+  </div>
+
+  <script>
+    (() => {
+      const input = document.querySelector("[data-file]");
+      const label = document.querySelector("[data-label]");
+      const preview = document.querySelector("[data-preview]");
+      if (!input) return;
+
+      input.addEventListener("change", () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        label.textContent = file.name;
+        // Show them what they picked before they spend a round trip on it.
+        preview.src = URL.createObjectURL(file);
+        preview.classList.remove("hidden");
+      });
+    })();
+  </script>
+{% endblock %}

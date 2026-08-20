@@ -10,9 +10,36 @@
         {% if is_edit %}Edit event{% else %}Create an event{% endif %}
       </h1>
       <p class="mt-1 text-sm text-ink-subtle">
-        Fill in what you know now — you can save a draft and publish it when you're ready.
+        {% if from_poster %}
+          Read off your poster. Check it over — especially the date — then publish.
+        {% else %}
+          Fill in what you know now — you can save a draft and publish it when you're ready.
+        {% endif %}
       </p>
+
+      {% if poster_reader_on and not is_edit and not from_poster %}
+        <a href="{% url 'events:from_poster' %}"
+           class="mt-3 inline-flex items-center gap-2 rounded-xl border border-hairline bg-surface-2 px-3 py-2 text-xs font-medium text-ink-muted transition hover:border-brand-400 hover:text-ink">
+          🖼️ Already have a poster? Read the details off it instead
+        </a>
+      {% endif %}
     </div>
+
+    {% if poster_warnings %}
+      {% comment %}
+        What the poster did not say, or said unclearly. Shown before the fields
+        rather than beside them, because the point is that somebody reads these
+        before skimming past a form that already looks complete.
+      {% endcomment %}
+      <div class="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Check these before publishing</p>
+        <ul class="mt-2 space-y-1 text-xs text-amber-800 dark:text-amber-400">
+          {% for warning in poster_warnings %}
+            <li>· {{ warning }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
 
     {% if form.non_field_errors %}
       <div class="mb-6 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-800">

@@ -16,7 +16,16 @@ def site_context(request):
         "nav_universities": University.objects.all()[:20],
         "pending_verifications": _pending_verifications(request),
         "wallets_accepted": _wallets_accepted(),
+        # So the organizer templates can offer poster reading only where it
+        # actually works, rather than linking to a route that redirects away.
+        "poster_reader_on": _poster_reader_on(),
     }
+
+
+def _poster_reader_on():
+    from events.poster import is_configured
+
+    return is_configured()
 
 
 def _wallets_accepted():

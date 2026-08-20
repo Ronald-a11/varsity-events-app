@@ -28,7 +28,7 @@ from .forms import (
     ReviewForm,
     TicketOutletFormSet,
 )
-from . import qr
+from . import poster, poster_import, qr
 from .models import Bookmark, Category, Event, Registration, Review, TicketStatus
 from .search import search_events, supports_full_text
 
@@ -710,6 +710,67 @@ def event_create(request):
         "events/event_form.html",
         {"form": form, "outlets": outlets, "is_edit": False},
     )
+
+
+@login_required
+@ratelimit(key="user", rate="20/h", method="POST", block=True)
+def event_from_poster(request):
+    """Read an event off its poster, then hand the organizer a filled-in form.
+
+    Organizers and platform staff only — the same people who can publish an
+    event by typing it. This is a faster way to reach the existing form, not a
+    way round it: nothing is saved here, and what comes back still goes through
+    EventForm's validation and the same review as anything typed by hand.
+
+    Every POST costs a model call, which is why it is rate limited per user
+    rather than per IP.
+    """
+    organizations = request.user.managed_organizations()
+    if not organizations.exists():
+        messages.warning(
+            request, "You need to run a society before you can publish events. Create one here."
+        )
+        return redirect("organizations:create")
+
+    if not poster.is_configured():
+        messages.info(request, "Reading posters isn't set up here — fill the form in directly.")
+        return redirect("events:create")
+
+    error = ""
+
+    if request.method == "POST":
+        upload = request.FILES.get("poster")
+
+        if upload is None:
+            error = "Choose a poster image first."
+        else:
+            try:
+                data = poster.read_poster(upload.read(), upload.content_type)
+            except poster.PosterError as exc:
+                error = str(exc)
+            else:
+                initial, warnings = poster_import.to_form_initial(data, organizations)
+
+                # The poster is the banner. It is the artwork the society already
+                # made and the image students will recognise, and re-uploading it
+                # by hand would be a strange thing to ask.
+                upload.seek(0)
+                form = EventForm(initial=initial, user=request.user)
+
+                request.session["poster_warnings"] = warnings
+                return render(
+                    request,
+                    "events/event_form.html",
+                    {
+                        "form": form,
+                        "outlets": TicketOutletFormSet(prefix="outlets"),
+                        "is_edit": False,
+                        "poster_warnings": warnings,
+                        "from_poster": True,
+                    },
+                )
+
+    return render(request, "events/event_from_poster.html", {"error": error})
 
 
 @login_required

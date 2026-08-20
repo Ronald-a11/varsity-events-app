@@ -34,6 +34,9 @@ dependencies = [
     # Second factor for the accounts that can release money. TOTP, because an
     # authenticator app works on a handset with no airtime and no signal.
     "django-otp>=1.5",
+
+    # Reading an event off its poster. Inert unless ANTHROPIC_API_KEY is set.
+    "anthropic>=0.40",
 ]
 
 [dependency-groups]

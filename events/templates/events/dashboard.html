@@ -126,7 +126,12 @@
           <p class="text-4xl">📣</p>
           <h3 class="mt-3 text-lg font-semibold text-ink">Nothing on the calendar</h3>
           <p class="mt-1 text-sm text-ink-subtle">Publish your first event and it'll show up here.</p>
-          <a href="{% url 'events:create' %}" class="btn-primary mt-5">Create an event</a>
+          <div class="mt-5 flex flex-wrap justify-center gap-2">
+            <a href="{% url 'events:create' %}" class="btn-primary">Create an event</a>
+            {% if poster_reader_on %}
+              <a href="{% url 'events:from_poster' %}" class="btn-secondary">🖼️ Start from a poster</a>
+            {% endif %}
+          </div>
         </div>
       {% endif %}
     </section>

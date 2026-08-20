@@ -12,6 +12,9 @@ urlpatterns = [
     # mistaken for an event slug.
     path("manage/", views.dashboard, name="dashboard"),
     path("manage/new/", views.event_create, name="create"),
+    # Reads an event off its poster and hands back a filled-in create form.
+    # Above the slug routes for the same reason "manage" is.
+    path("manage/from-poster/", views.event_from_poster, name="from_poster"),
     path("manage/<slug:slug>/edit/", views.event_edit, name="edit"),
     path("manage/<slug:slug>/delete/", views.event_delete, name="delete"),
     path("manage/<slug:slug>/cancel/", views.event_cancel, name="cancel"),

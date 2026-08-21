@@ -1,131 +1,181 @@
-{% extends "base.html" %}
+{% extends "accounts/settings_base.html" %}
 
 {% block title %}My profile · {{ SITE_NAME }}{% endblock %}
 
-{% block content %}
-  <div class="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-    <!-- Header -->
-    <div class="card overflow-hidden">
-      <div class="h-24 bg-gradient-to-r from-brand-600 to-azure-600"></div>
-      <div class="px-6 pb-6">
-        <div class="-mt-10 flex flex-wrap items-end gap-4">
-          {% if profile_user.avatar %}
-            <img src="{{ profile_user.avatar.url }}" alt="" class="h-20 w-20 rounded-2xl border-4 border-surface object-cover shadow" />
-          {% else %}
-            <span class="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-surface bg-brand-900 text-xl font-bold text-white shadow">{{ profile_user.initials }}</span>
-          {% endif %}
+{% block settings_title %}Profile{% endblock %}
+{% block settings_subtitle %}
+  How you look to organizers, and what you've got coming up.
+{% endblock %}
 
-          <div class="flex flex-1 flex-wrap items-end justify-between gap-3 pb-1">
-            <div>
-              <h1 class="text-xl font-extrabold tracking-tight text-ink">{{ profile_user.display_name }}</h1>
-              <p class="text-sm text-ink-subtle">
-                @{{ profile_user.username }} · {{ profile_user.get_role_display }}
-                {% if profile_user.university %} · {{ profile_user.university.label }}{% endif %}
-              </p>
-            </div>
-            <div class="flex gap-2">
-              <a href="{% url 'accounts:profile_edit' %}" class="btn-secondary btn-sm">Edit profile</a>
-              <a href="{% url 'accounts:password_change' %}" class="btn-ghost btn-sm">Password</a>
-            </div>
-          </div>
-        </div>
-
-        {% if profile_user.bio %}<p class="mt-4 max-w-2xl text-sm text-ink-muted">{{ profile_user.bio }}</p>{% endif %}
-
-        <dl class="mt-5 grid grid-cols-2 gap-4 border-t border-hairline pt-5 sm:grid-cols-4">
-          <div>
-            <dt class="text-xs uppercase tracking-wide text-ink-subtle">Tickets</dt>
-            <dd class="mt-0.5 text-xl font-bold text-ink">{{ ticket_count }}</dd>
-          </div>
-          <div>
-            <dt class="text-xs uppercase tracking-wide text-ink-subtle">Saved</dt>
-            <dd class="mt-0.5 text-xl font-bold text-ink">{{ bookmark_count }}</dd>
-          </div>
-          <div>
-            <dt class="text-xs uppercase tracking-wide text-ink-subtle">Societies</dt>
-            <dd class="mt-0.5 text-xl font-bold text-ink">{{ organizations|length }}</dd>
-          </div>
-          <div>
-            <dt class="text-xs uppercase tracking-wide text-ink-subtle">Hosted</dt>
-            <dd class="mt-0.5 text-xl font-bold text-ink">{{ hosted_count }}</dd>
-          </div>
-        </dl>
-      </div>
-    </div>
-
-    <div class="mt-8 grid gap-6 lg:grid-cols-[1fr_300px]">
-      <!-- Next up -->
-      <section>
-        <div class="flex items-center justify-between">
-          <h2 class="section-title">Your next events</h2>
-          <a href="{% url 'accounts:tickets' %}" class="btn-ghost btn-sm">All tickets →</a>
-        </div>
-
-        {% if upcoming_tickets %}
-          <ul class="mt-4 space-y-3">
-            {% for reg in upcoming_tickets %}
-              <li class="card flex flex-wrap items-center gap-4 p-4">
-                <div class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400">
-                  <span class="text-[10px] font-bold uppercase">{{ reg.event.starts_at|date:"M" }}</span>
-                  <span class="text-base font-extrabold leading-none">{{ reg.event.starts_at|date:"j" }}</span>
-                </div>
-                <div class="min-w-0 flex-1">
-                  <a href="{{ reg.event.get_absolute_url }}" class="truncate font-semibold text-ink hover:text-brand-600">{{ reg.event.title }}</a>
-                  <p class="truncate text-xs text-ink-subtle">{{ reg.event.starts_at|date:"H:i" }} · {{ reg.event.location_display }}</p>
-                </div>
-                <a href="{% url 'events:ticket' reg.ticket_code %}" class="btn-secondary btn-sm">Ticket</a>
-              </li>
-            {% endfor %}
-          </ul>
+{% block settings_content %}
+  <!-- Identity -->
+  <div class="card overflow-hidden">
+    <div class="h-16 bg-gradient-to-r from-brand-600 via-brand-500 to-azure-500"></div>
+    <div class="px-6 pb-6">
+      {% comment %}
+        The avatar overlaps the banner; the name and the actions sit below it in
+        their own row. Aligning all three to one baseline drags the name and the
+        buttons up onto the gradient, where dark text stops being readable.
+      {% endcomment %}
+      <div class="-mt-8">
+        {% if profile_user.avatar %}
+          <img src="{{ profile_user.avatar.url }}" alt="" class="h-[72px] w-[72px] rounded-2xl border-4 border-surface object-cover shadow" />
         {% else %}
-          <div class="card mt-4 px-6 py-12 text-center">
-            <p class="text-3xl">🎫</p>
-            <h3 class="mt-3 font-semibold text-ink">No tickets yet</h3>
-            <p class="mt-1 text-sm text-ink-subtle">Find something happening on campus this week.</p>
-            <a href="{% url 'events:list' %}" class="btn-primary mt-5">Browse events</a>
-          </div>
+          <span class="flex h-[72px] w-[72px] items-center justify-center rounded-2xl border-4 border-surface bg-brand-900 text-xl font-bold text-white shadow">{{ profile_user.initials }}</span>
         {% endif %}
-      </section>
+      </div>
 
-      <!-- Side -->
-      <aside class="space-y-4">
-        <div class="card p-5">
-          <h2 class="text-base font-bold text-ink">Details</h2>
-          <dl class="mt-3 space-y-2.5 text-sm">
-            <div class="flex justify-between gap-3"><dt class="text-ink-subtle">Email</dt><dd class="truncate font-medium text-ink">{{ profile_user.email }}</dd></div>
-            {% if profile_user.student_id %}<div class="flex justify-between gap-3"><dt class="text-ink-subtle">Student ID</dt><dd class="font-medium text-ink">{{ profile_user.student_id }}</dd></div>{% endif %}
-            {% if profile_user.course %}<div class="flex justify-between gap-3"><dt class="text-ink-subtle">Course</dt><dd class="truncate font-medium text-ink">{{ profile_user.course }}</dd></div>{% endif %}
-            {% if profile_user.year_of_study %}<div class="flex justify-between gap-3"><dt class="text-ink-subtle">Year</dt><dd class="font-medium text-ink">Year {{ profile_user.year_of_study }}</dd></div>{% endif %}
-          </dl>
+      <div class="mt-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="flex flex-wrap items-center gap-2 text-lg font-extrabold tracking-tight text-ink">
+              {{ profile_user.display_name }}
+              {% if profile_user.is_verified_organizer %}
+                <span class="chip bg-sky-500/10 text-sky-600 dark:text-sky-400" title="Verified organizer — events skip the review queue">✓ Verified organizer</span>
+              {% endif %}
+            </h2>
+            <p class="truncate text-sm text-ink-subtle">
+              @{{ profile_user.username }} · {{ profile_user.get_role_display }}
+              {% if profile_user.university %} · {{ profile_user.university.label }}{% endif %}
+            </p>
+          </div>
+          <div class="flex shrink-0 flex-wrap gap-2">
+            <a href="{% url 'accounts:profile_edit' %}" class="btn-secondary btn-sm">Edit profile</a>
+            <a href="{% url 'accounts:public_profile' profile_user.username %}" class="btn-ghost btn-sm">View as public</a>
+          </div>
         </div>
+      </div>
 
-        {% if profile_user.interests.exists %}
-          <div class="card p-5">
-            <h2 class="text-base font-bold text-ink">Interests</h2>
-            <div class="mt-3 flex flex-wrap gap-2">
-              {% for interest in profile_user.interests.all %}
-                <a href="{% url 'events:list' %}?category={{ interest.slug }}" class="chip bg-{{ interest.color }}-50 text-{{ interest.color }}-700 hover:opacity-80">{{ interest.icon }} {{ interest.name }}</a>
-              {% endfor %}
-            </div>
-          </div>
-        {% endif %}
+      {% if profile_user.bio %}
+        <p class="mt-4 max-w-prose text-sm leading-relaxed text-ink-muted">{{ profile_user.bio }}</p>
+      {% endif %}
 
-        {% if organizations %}
-          <div class="card p-5">
-            <h2 class="text-base font-bold text-ink">Your societies</h2>
-            <ul class="mt-3 space-y-2">
-              {% for organization in organizations %}
-                <li>
-                  <a href="{{ organization.get_absolute_url }}" class="flex items-center gap-2.5 rounded-xl p-2 hover:bg-surface-2">
-                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-900 text-[10px] font-bold text-white">{{ organization.initials }}</span>
-                    <span class="truncate text-sm font-medium text-ink-muted">{{ organization.name }}</span>
-                  </a>
-                </li>
-              {% endfor %}
-            </ul>
+      <dl class="mt-5 grid grid-cols-2 gap-3 border-t border-hairline pt-5 sm:grid-cols-4">
+        {% for stat in stats %}
+          <div class="rounded-xl bg-surface-2 px-3 py-2.5">
+            <dt class="text-2xs font-semibold uppercase tracking-widest text-ink-subtle">{{ stat.label }}</dt>
+            <dd class="mt-0.5 text-xl font-extrabold text-ink">{{ stat.value }}</dd>
           </div>
-        {% endif %}
-      </aside>
+        {% endfor %}
+      </dl>
     </div>
   </div>
+
+  <!-- Anything the account is behind on, once, at the top -->
+  {% if not profile_user.email_is_verified or not profile_user.profile_is_complete %}
+    <div class="card mt-6 border-amber-500/30 bg-amber-500/5 p-5">
+      <h3 class="text-sm font-bold text-ink">Finish setting up</h3>
+      <ul class="mt-3 space-y-2.5 text-sm">
+        {% if not profile_user.email_is_verified %}
+          <li class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="text-ink-muted">Confirm {{ profile_user.email }}</span>
+            <form method="post" action="{% url 'accounts:resend_verification' %}">
+              {% csrf_token %}
+              <button class="text-xs font-semibold text-brand-600 underline underline-offset-2 hover:text-brand-700 dark:text-brand-400">Resend the link</button>
+            </form>
+          </li>
+        {% endif %}
+        {% if not profile_user.profile_is_complete %}
+          <li class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="text-ink-muted">Add your name and university, so organizers know who's turning up</span>
+            <a href="{% url 'accounts:profile_edit' %}" class="text-xs font-semibold text-brand-600 underline underline-offset-2 hover:text-brand-700 dark:text-brand-400">Edit profile</a>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <!-- Next up -->
+  <section class="mt-8">
+    <div class="flex items-center justify-between">
+      <h3 class="section-title">Your next events</h3>
+      <a href="{% url 'accounts:tickets' %}" class="btn-ghost btn-sm">All tickets →</a>
+    </div>
+
+    {% if upcoming_tickets %}
+      <ul class="mt-4 space-y-3">
+        {% for reg in upcoming_tickets %}
+          <li class="card flex flex-wrap items-center gap-4 p-4">
+            <div class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400">
+              <span class="text-[10px] font-bold uppercase">{{ reg.event.starts_at|date:"M" }}</span>
+              <span class="text-base font-extrabold leading-none">{{ reg.event.starts_at|date:"j" }}</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <a href="{{ reg.event.get_absolute_url }}" class="block truncate font-semibold text-ink hover:text-brand-600">{{ reg.event.title }}</a>
+              <p class="truncate text-xs text-ink-subtle">{{ reg.event.starts_at|date:"H:i" }} · {{ reg.event.location_display }}</p>
+            </div>
+            <a href="{% url 'events:ticket' reg.ticket_code %}" class="btn-secondary btn-sm">Ticket</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="card mt-4 px-6 py-12 text-center">
+        <p class="text-3xl">🎫</p>
+        <h4 class="mt-3 font-semibold text-ink">No tickets yet</h4>
+        <p class="mt-1 text-sm text-ink-subtle">Find something happening on campus this week.</p>
+        <a href="{% url 'events:list' %}" class="btn-primary mt-5">Browse events</a>
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- Details and interests, side by side once there's room -->
+  <div class="mt-8 grid gap-6 sm:grid-cols-2">
+    <div class="card p-5">
+      <h3 class="text-base font-bold text-ink">Details</h3>
+      <dl class="mt-3 space-y-2.5 text-sm">
+        <div class="flex justify-between gap-3">
+          <dt class="text-ink-subtle">Email</dt>
+          <dd class="flex min-w-0 items-center gap-1.5">
+            <span class="truncate font-medium text-ink">{{ profile_user.email }}</span>
+            {% if profile_user.email_is_verified %}
+              <span class="text-emerald-600 dark:text-emerald-400" title="Confirmed">✓</span>
+            {% endif %}
+          </dd>
+        </div>
+        {% if profile_user.student_id %}<div class="flex justify-between gap-3"><dt class="text-ink-subtle">Student ID</dt><dd class="font-medium text-ink">{{ profile_user.student_id }}</dd></div>{% endif %}
+        {% if profile_user.course %}<div class="flex justify-between gap-3"><dt class="text-ink-subtle">Course</dt><dd class="truncate font-medium text-ink">{{ profile_user.course }}</dd></div>{% endif %}
+        {% if profile_user.year_of_study %}<div class="flex justify-between gap-3"><dt class="text-ink-subtle">Year</dt><dd class="font-medium text-ink">Year {{ profile_user.year_of_study }}</dd></div>{% endif %}
+        {% if profile_user.phone %}<div class="flex justify-between gap-3"><dt class="text-ink-subtle">Phone</dt><dd class="font-medium text-ink">{{ profile_user.phone }}</dd></div>{% endif %}
+      </dl>
+    </div>
+
+    <div class="card p-5">
+      <h3 class="text-base font-bold text-ink">Interests</h3>
+      {% if profile_user.interests.exists %}
+        <div class="mt-3 flex flex-wrap gap-2">
+          {% for interest in profile_user.interests.all %}
+            <a href="{% url 'events:list' %}?category={{ interest.slug }}" class="chip bg-{{ interest.color }}-50 text-{{ interest.color }}-700 hover:opacity-80">{{ interest.icon }} {{ interest.name }}</a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="mt-2 text-sm text-ink-subtle">
+          Pick a few and we'll put the right events in front of you.
+        </p>
+        <a href="{% url 'accounts:profile_edit' %}" class="btn-secondary btn-sm mt-4">Choose interests</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if organizations %}
+    <section class="mt-8">
+      <h3 class="section-title">Your societies</h3>
+      <ul class="mt-4 grid gap-3 sm:grid-cols-2">
+        {% for organization in organizations %}
+          <li>
+            <a href="{{ organization.get_absolute_url }}" class="card flex items-center gap-3 p-4 transition hover:border-brand-400">
+              {% if organization.logo %}
+                <img src="{{ organization.logo.url }}" alt="" class="h-10 w-10 shrink-0 rounded-lg object-cover" />
+              {% else %}
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-900 text-[11px] font-bold text-white">{{ organization.initials }}</span>
+              {% endif %}
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-semibold text-ink">{{ organization.name }}</span>
+                <span class="block truncate text-xs text-ink-subtle">{{ organization.get_kind_display }}</span>
+              </span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
 {% endblock %}

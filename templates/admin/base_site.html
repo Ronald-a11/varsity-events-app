@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% comment %}
+  Branding and the theme stylesheet. Overrides Django's own base_site.html
+  because DIRS is searched before APP_DIRS — see TEMPLATES in settings.
+
+  The admin is where somebody suspends a society and refunds a ticket. It
+  looking like a different product from the one it administers is a small lie
+  that costs confidence, so it wears the same wordmark and the same palette.
+{% endcomment %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} · {% endif %}{{ title }} · {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  {% comment %}After base.css and dark_mode.css, so the palette wins.{% endcomment %}
+  <link rel="stylesheet" href="{% static 'css/admin.css' %}" />
+{% endblock %}
+
+{% block branding %}
+  <h1 id="site-name">
+    <a href="{% url 'admin:index' %}"><span class="ve-lead">VARSITY</span> EVENTS</a><span class="ve-env">administration</span>
+  </h1>
+{% endblock %}
+
+{% block usertools %}
+  {% if has_permission %}
+    <div id="user-tools">
+      {% block welcome-msg %}
+        {{ user.get_short_name|default:user.get_username }}
+      {% endblock %}
+      {% block userlinks %}
+        {% comment %}
+          Curation lives at /staff/ and is the more common destination; the
+          admin is the escape hatch behind it, so link the two both ways.
+        {% endcomment %}
+        <a href="{% url 'core:staff_dashboard' %}">Curation</a>
+        <a href="{% url 'core:home' %}">View site</a>
+        {% if user.has_usable_password %}
+          <a href="{% url 'admin:password_change' %}">Change password</a>
+        {% endif %}
+        <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
+          {% csrf_token %}
+          <button type="submit">Log out</button>
+        </form>
+      {% endblock %}
+    </div>
+  {% endif %}
+{% endblock %}

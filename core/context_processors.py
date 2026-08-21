@@ -19,7 +19,68 @@ def site_context(request):
         # So the organizer templates can offer poster reading only where it
         # actually works, rather than linking to a route that redirects away.
         "poster_reader_on": _poster_reader_on(),
+        "settings_nav": _settings_nav(request),
     }
+
+
+# The account pages that share the settings shell, in the order they appear.
+SETTINGS_PAGES = [
+    ("profile", "Profile", "👤"),
+    ("profile_edit", "Edit profile", "✏️"),
+    ("password_change", "Password", "🔑"),
+    ("two_factor_manage", "Security", "🛡️"),
+]
+
+# The security pages are steps within Security, so the rail keeps that item lit
+# rather than going blank halfway through enrolling.
+SECURITY_STEPS = {
+    "two_factor_manage",
+    "two_factor_setup",
+    "two_factor_verify",
+    "two_factor_codes",
+    "two_factor_regenerate_codes",
+}
+
+
+def _settings_nav(request):
+    """The rail down the side of the account pages.
+
+    Built here rather than in each view so that adding a settings page is a
+    template change and a line in the list above, not four edits. Returns None
+    everywhere else, which costs one dictionary lookup on pages that don't use
+    it.
+    """
+    match = getattr(request, "resolver_match", None)
+    user = getattr(request, "user", None)
+    if match is None or not user or not user.is_authenticated:
+        return None
+    if match.namespace != "accounts":
+        return None
+
+    current = match.url_name
+    if current not in {name for name, _, _ in SETTINGS_PAGES} | SECURITY_STEPS:
+        return None
+
+    from django.urls import reverse
+
+    items = []
+    for name, label, icon in SETTINGS_PAGES:
+        active = current == name or (name == "two_factor_manage" and current in SECURITY_STEPS)
+        items.append(
+            {
+                "label": label,
+                "icon": icon,
+                "url": reverse(f"accounts:{name}"),
+                "active": active,
+                # One quiet dot, on the one thing an account can be behind on.
+                "badge": (
+                    "Email not confirmed"
+                    if name == "profile_edit" and not user.email_is_verified
+                    else ""
+                ),
+            }
+        )
+    return items
 
 
 def _poster_reader_on():

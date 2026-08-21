@@ -1,59 +1,111 @@
-{% extends "base.html" %}
+{% extends "accounts/settings_base.html" %}
 
 {% block title %}Edit profile · {{ SITE_NAME }}{% endblock %}
 
-{% block content %}
-  <div class="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-    <a href="{% url 'accounts:profile' %}" class="text-sm text-ink-subtle hover:text-brand-600">← Back to profile</a>
-    <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink">Edit your profile</h1>
-    <p class="mt-1 text-sm text-ink-subtle">Organizers see your name and course when you register for their events.</p>
+{% block settings_title %}Edit profile{% endblock %}
+{% block settings_subtitle %}
+  Organizers see your name and course when you register for their events.
+{% endblock %}
 
-    <form method="post" enctype="multipart/form-data" class="mt-8 space-y-6" novalidate>
-      {% csrf_token %}
+{% block settings_content %}
+  <form method="post" enctype="multipart/form-data" class="space-y-6" novalidate>
+    {% csrf_token %}
+    {% if is_welcome %}<input type="hidden" name="welcome" value="1" />{% endif %}
 
-      <section class="card p-6">
-        <h2 class="text-base font-bold text-ink">About you</h2>
-        <div class="mt-5 space-y-5">
-          <div class="grid gap-5 sm:grid-cols-2">
-            {% include "partials/_field.html" with field=form.first_name %}
-            {% include "partials/_field.html" with field=form.last_name %}
-          </div>
-          {% include "partials/_field.html" with field=form.email %}
-          {% include "partials/_field.html" with field=form.avatar %}
-          {% include "partials/_field.html" with field=form.bio %}
-        </div>
-      </section>
-
-      <section class="card p-6">
-        <h2 class="text-base font-bold text-ink">Studies</h2>
-        <div class="mt-5 grid gap-5 sm:grid-cols-2">
-          {% include "partials/_field.html" with field=form.university %}
-          {% include "partials/_field.html" with field=form.student_id %}
-          {% include "partials/_field.html" with field=form.course %}
-          {% include "partials/_field.html" with field=form.year_of_study %}
-          {% include "partials/_field.html" with field=form.phone wrapper_class="sm:col-span-2" %}
-        </div>
-      </section>
-
-      <section class="card p-6">
-        <h2 class="text-base font-bold text-ink">{{ form.interests.label }}</h2>
-        <p class="mt-1 text-xs text-ink-subtle">{{ form.interests.help_text }}</p>
-        <div class="mt-4 grid gap-2 sm:grid-cols-2">
-          {% for checkbox in form.interests %}
-            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-hairline p-3 text-sm text-ink-muted transition hover:border-brand-300 hover:bg-brand-50/50">
-              {{ checkbox.tag }}
-              <span>{{ checkbox.choice_label }}</span>
-            </label>
-          {% empty %}
-            <p class="text-sm text-ink-subtle">No categories set up yet.</p>
-          {% endfor %}
-        </div>
-      </section>
-
-      <div class="flex gap-3">
-        <button type="submit" class="btn-primary">Save changes</button>
-        <a href="{% url 'accounts:profile' %}" class="btn-ghost">Cancel</a>
+    {% if form.non_field_errors %}
+      <div class="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-800 dark:text-rose-300">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
       </div>
-    </form>
-  </div>
+    {% endif %}
+
+    <!-- Who you are -->
+    <section class="card p-6">
+      <div class="flex items-start gap-4">
+        {% if user.avatar %}
+          <img src="{{ user.avatar.url }}" alt="" class="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+        {% else %}
+          <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brand-900 text-lg font-bold text-white">{{ user.initials }}</span>
+        {% endif %}
+        <div class="min-w-0 flex-1">
+          <h2 class="text-base font-bold text-ink">About you</h2>
+          <p class="mt-0.5 text-xs text-ink-subtle">
+            Your name is the one an organizer reads off the door list.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-5 space-y-5">
+        <div class="grid gap-5 sm:grid-cols-2">
+          {% include "partials/_field.html" with field=form.first_name %}
+          {% include "partials/_field.html" with field=form.last_name %}
+        </div>
+        {% include "partials/_field.html" with field=form.avatar %}
+        {% include "partials/_field.html" with field=form.bio %}
+      </div>
+    </section>
+
+    <!-- Email, and whether it has been proved -->
+    <section class="card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-base font-bold text-ink">Email address</h2>
+        {% if user.email_is_verified %}
+          <span class="chip bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">✓ Confirmed</span>
+        {% else %}
+          <span class="chip bg-amber-500/10 text-amber-600 dark:text-amber-400">Not confirmed</span>
+        {% endif %}
+      </div>
+      <p class="mt-1 text-xs leading-relaxed text-ink-subtle">
+        Tickets, receipts and waitlist messages go here. Change it and we'll ask you to
+        confirm the new one — registering a society needs a confirmed address.
+      </p>
+
+      <div class="mt-5">
+        {% include "partials/_field.html" with field=form.email %}
+      </div>
+
+      {% if not user.email_is_verified %}
+        <p class="mt-3 text-xs text-ink-subtle">
+          Didn't get the link? It's on the banner at the top of any page, or
+          <a href="{% url 'accounts:profile' %}" class="underline underline-offset-2 hover:text-ink-muted">on your profile</a>.
+        </p>
+      {% endif %}
+    </section>
+
+    <!-- Studies -->
+    <section class="card p-6">
+      <h2 class="text-base font-bold text-ink">Studies</h2>
+      <p class="mt-0.5 text-xs text-ink-subtle">
+        Your university decides what leads your feed. You still see events nationwide.
+      </p>
+      <div class="mt-5 grid gap-5 sm:grid-cols-2">
+        {% include "partials/_field.html" with field=form.university %}
+        {% include "partials/_field.html" with field=form.student_id %}
+        {% include "partials/_field.html" with field=form.course %}
+        {% include "partials/_field.html" with field=form.year_of_study %}
+        {% include "partials/_field.html" with field=form.phone wrapper_class="sm:col-span-2" %}
+      </div>
+    </section>
+
+    <!-- Interests -->
+    <section class="card p-6">
+      <h2 class="text-base font-bold text-ink">{{ form.interests.label }}</h2>
+      <p class="mt-0.5 text-xs text-ink-subtle">{{ form.interests.help_text }}</p>
+      <div class="mt-4 grid gap-2 sm:grid-cols-2">
+        {% for checkbox in form.interests %}
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-hairline p-3 text-sm text-ink-muted transition hover:border-brand-400 hover:bg-brand-500/5 has-[:checked]:border-brand-400 has-[:checked]:bg-brand-500/10 has-[:checked]:text-ink">
+            {{ checkbox.tag }}
+            <span>{{ checkbox.choice_label }}</span>
+          </label>
+        {% empty %}
+          <p class="text-sm text-ink-subtle">No categories set up yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- Actions. Sticky on a phone, where the form is long enough to lose them. -->
+    <div class="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-3 border-t border-hairline bg-surface-2/95 px-4 py-4 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:px-5">
+      <button type="submit" class="btn-primary" data-loading>Save changes</button>
+      <a href="{% url 'accounts:profile' %}" class="btn-ghost">Cancel</a>
+    </div>
+  </form>
 {% endblock %}

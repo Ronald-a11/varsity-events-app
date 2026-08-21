@@ -235,13 +235,20 @@ def profile(request):
         .exclude(status=Registration.Status.CANCELLED)
         .select_related("event", "event__organization")
     )
+    organizations = request.user.organizations.filter(memberships__is_active=True).distinct()
+
     context = {
         "profile_user": request.user,
         "upcoming_tickets": [r for r in registrations if not r.event.has_ended][:4],
-        "ticket_count": registrations.count(),
-        "bookmark_count": Bookmark.objects.filter(user=request.user).count(),
-        "organizations": request.user.organizations.filter(memberships__is_active=True).distinct(),
-        "hosted_count": Event.objects.filter(created_by=request.user).count(),
+        "organizations": organizations,
+        # A list rather than four separate names, so the template renders one
+        # loop and adding a figure doesn't mean editing markup in two places.
+        "stats": [
+            {"label": "Tickets", "value": registrations.count()},
+            {"label": "Saved", "value": Bookmark.objects.filter(user=request.user).count()},
+            {"label": "Societies", "value": organizations.count()},
+            {"label": "Hosted", "value": Event.objects.filter(created_by=request.user).count()},
+        ],
     }
     return render(request, "accounts/profile.html", context)
 

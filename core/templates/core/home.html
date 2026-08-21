@@ -34,10 +34,16 @@
     {% comment %}
       Three overlays, each doing a different job.
 
-      Three overlays. The flat wash takes the brightness down; the scrim is a
-      soft pool under the words; the vertical gradient darkens the top, where
-      the transparent nav sits, and the foot, where the hero hands off to the
-      page colour without ending on a hard line.
+      Four layers. The flat wash takes the brightness down; `hero-soften`
+      blurs the picture where the words are; the scrim is a pool of shade under
+      them; the vertical gradient darkens the top, where the transparent nav
+      sits, and the foot, where the hero hands off to the page colour without
+      ending on a hard line.
+
+      The blur is the one that does the heavy lifting. A busy photograph
+      competes with type through *detail* as much as brightness, so past a
+      point more shade only produces a dark picture with edges still running
+      through the letters.
 
       Heavier than they were under the generated artwork, because a photograph
       is bright wherever it happens to be bright — this one has a lit stage
@@ -52,7 +58,8 @@
       is a photograph of a real event on this platform, that is the hero, and
       whichever of these is standing in should be easy to replace.
     {% endcomment %}
-    <div class="absolute inset-0 bg-brand-950/45"></div>
+    <div class="absolute inset-0 bg-brand-950/50"></div>
+    <div class="absolute inset-0 hero-soften"></div>
     <div class="absolute inset-0 hero-scrim"></div>
     <div class="absolute inset-0 bg-gradient-to-b from-brand-950/75 via-transparent to-brand-950/85"></div>
 

@@ -26,11 +26,16 @@ Built with **Django 5.2** and **Tailwind CSS 3**.
 
 **For organizers**
 
-- Register a society, invite members, promote admins
-- Create events as drafts, then publish when ready
+- Register a society, invite members, promote admins — or **claim** one we already
+  listed for your campus and be handed the page
+- Create events as drafts, then publish when ready. A new society's first events
+  get one look from us; once you're verified they go straight up
+- **Scan tickets at the door** with the camera, or type the code
 - List every ticket outlet and untick one the moment it runs out
 - Override ticket status manually when tickets are sold somewhere the platform can't see
 - Live dashboard with **money collected**, door check-in desk, announcements
+- An **earnings statement** showing what we hold for you, what we kept and what
+  we've sent — every payout openable down to the individual tickets
 - CSV export including payment method and gateway reference per attendee
 
 **For platform staff**
@@ -38,7 +43,10 @@ Built with **Django 5.2** and **Tailwind CSS 3**.
 - An in-app admin at `/staff/` covering every event at every university
 - Filter by university, status, or whether it's been picked
 - **Pick** events to lead the site, publish, unpublish, cancel, mark sold out, or delete
-- Verify and suspend societies at `/staff/societies/`
+- Work the **review queue** — a new society's events wait there before students see them
+- Verify and suspend societies at `/staff/societies/`, and hand pages to their real
+  committees at `/staff/claims/`
+- **Pay the societies** at `/pay/payouts/`: what each is owed, and the record of what went
 - Full Django admin at `/admin/` for everything else
 
 ---
@@ -102,6 +110,10 @@ Password for all three: `demo12345`
 The seed data includes one event deliberately marked **sold out** and one marked
 **not currently available**, so both states are visible straight away.
 
+> These three passwords are in a public README, which is exactly why
+> `manage.py preflight` refuses to pass while any account still has one — and it
+> checks by hashing rather than by username. See **Going live** below.
+
 ---
 
 ## Project layout
@@ -132,6 +144,10 @@ static/src/       Tailwind source — compiled to static/css/app.css
   flag. An event can have as many as it needs.
 - **Registration** — one person's ticket. Unique `VE-XXXX-XXXX` code, status and check-in fields.
 - **Bookmark**, **EventUpdate**, **Review** — saved events, announcements and feedback.
+- **OrganizationClaim** — somebody saying "this is my society", with the evidence
+  and the verdict. Approving one hands over the page.
+- **Payout** — one settlement from the platform to a society, claiming the sales
+  it covers so the same money can't go out twice.
 
 ### Payments — direct EcoCash
 
@@ -345,6 +361,195 @@ On top of that: a **⌘K command palette** searching events, societies and unive
 live availability badges; reveal-on-scroll for cards; a navigation progress bar; skeleton
 loaders; and `prefers-reduced-motion` respected throughout.
 
+### Who can put something in front of students
+
+The platform is national. An event on the feed is seen at eighteen universities,
+and a paid one takes real money from real students — so publishing is not a
+button anybody gets by signing up.
+
+Three gates, in order of how much they cost the person passing them:
+
+| | What it stops |
+| --- | --- |
+| **A confirmed email address** | A throwaway signup registering a society or claiming one. Nothing else is gated: browsing, saving and getting a ticket work exactly as before. |
+| **Review of a new society's events** | An invented society selling tickets to an event that will never happen. Their events wait in a queue at `/staff/?status=review` until a person has looked. |
+| **Verification** | Nothing — it's what *removes* the queue. Verify a society and its events go straight up. |
+
+Verification carries to people as well as societies. Verifying a society at
+`/staff/societies/` also sets `is_verified_organizer` on whoever runs it, so the
+same committee starting a second society isn't reviewed from scratch. That flag
+had existed since the first migration and was checked nowhere; it means
+something now.
+
+**Confirming an address** is a signed, expiring token rather than a row in a
+table — nothing here needs revoking individually, and a token that carries its
+own expiry can't be left behind by a cleanup job that never ran. The signature
+covers the current address, so changing your email invalidates any link already
+sent to the old one. The link itself needs no sign-in: people read email on a
+different device from the one they signed up on, and demanding a password first
+is how a confirmation link goes unclicked.
+
+Sending is best-effort like every other email here. **A dead mail server must
+not close the front door** — the account is created, the person is signed in,
+and they simply can't publish until they confirm. There's a test that points
+sign-up at a refused SMTP port and asserts the account still exists.
+
+Staff are exempt from the whole thing: `createsuperuser` sends nothing to click,
+and locking the only administrator out of the admin is not a security posture.
+
+**Review** adds one status between draft and published, and it fails closed —
+every existing query for `PUBLISHED` already hides it, and `can_be_seen_by`
+refuses a queued event to anybody but its organizer and platform staff, however
+they came by the URL. Approving emails the society; sending it back returns it
+as a draft **carrying the reason**, because "no" on its own is not something an
+organizer can act on. Editing an event that is already live never pulls it off
+the feed — an organizer fixing a typo must not strand their own ticket-holders.
+
+### Claiming a society
+
+A directory only fills up if it can be populated ahead of its members. Societies
+can be listed from public information — a campus has a debate union whether or
+not anybody from it has found us — and their real committee takes the page over
+afterwards at `/societies/<slug>/claim/`.
+
+Without this, every society page waits for the one person who both runs it and
+finds us first, and what actually happens is a duplicate page beside the
+original, leaving students choosing between two.
+
+A claim asks for a position and for evidence somebody who doesn't know you could
+check. Approving it makes the claimant the **owner** — not an admin — so they can
+add the rest of their committee without coming back to us. It does *not* verify
+the society: proving you run something isn't the same as us vouching for it, so
+their first events still go through review.
+
+One open claim per person per society, enforced by a partial unique constraint
+as well as by the view. Re-asking louder is not evidence, and a queue full of
+duplicates is a queue nobody works. A rejected claim can be followed by a new
+one, because people do come back with more.
+
+The queue is at `/staff/claims/`.
+
+### Payouts — what the platform owes the societies
+
+Every ticket is paid into *our* Pesepay account and *our* EcoCash wallet, because
+that is the only way to hold a seat against money that hasn't landed yet. The
+societies still ran the events. Until that debt is written down somewhere it
+exists only as an argument waiting to happen — so it's written down.
+
+```
+PLATFORM_FEE_PERCENT=0
+PLATFORM_FEE_FIXED=0
+```
+
+**Both default to zero**, deliberately: every deployment that existed before the
+ledger took no fee, and switching one on by upgrading would be taking money
+nobody agreed to.
+
+The fee is worked out and **frozen onto each payment the moment it settles**, and
+never recomputed on read. The rate is a business decision that will change, and a
+society's statement from last term has to still say what it said last term. A
+payment with no fee assessed at all — every row taken before this existed —
+counts as owed in full. Rounding is half-up, not Python's default half-even: a
+society checking our arithmetic by hand would otherwise find us short, and be
+right.
+
+A **payout** claims the sales it covers by stamping `Payment.payout`, so the same
+money cannot go out twice — prepare a second payout with nothing new sold and it
+returns `None` rather than an empty settlement. Preparing locks the rows, so two
+staff pressing the button at once can't each build a payout from the same
+tickets. Cancelling a prepared payout releases its tickets back into the pool;
+one already sent can't be cancelled at all.
+
+Marking a payout sent **requires the wallet's own confirmation code**. Without it
+the row can't be reconciled against a statement later, which is most of what it
+is for.
+
+| Who | Where | What they see |
+| --- | --- | --- |
+| A society | `/pay/earnings/` | What we hold for them, what we kept, what we've sent |
+| Anybody on it | `/pay/payouts/<ref>/` | One settlement, broken down to the individual tickets |
+| Staff | `/pay/payouts/` | Every society owed, largest first, and the button that pays them |
+
+Every figure on a statement can be taken apart back to the tickets that make it
+up, because a number a society can't check is a number they won't believe.
+
+### The door can scan now
+
+The app issued a QR on every ticket and couldn't read one. A door person squinted
+at a phone and typed twelve characters per person, in a queue, in the dark.
+
+`static/js/scanner.js` uses the browser's own `BarcodeDetector`. No library, for
+three reasons: the page has to work on a bundle that ran out on the walk over, a
+scanning library is a hundred kilobytes of WASM, and the one thing worse than
+typing codes is a scanner that fails to load and leaves nothing in its place.
+
+Where `BarcodeDetector` is missing — Safari, Firefox — **nothing is rendered at
+all** and the typed field stays exactly as it was. The panel ships hidden and JS
+reveals it. A dead camera button at a door is worse than no camera button, the
+same rule this app already follows for push.
+
+A scan fills the existing field and submits the existing form, so it goes through
+the same view, the same permissions and the same duplicate handling as a typed
+code. It is a faster way to fill the field in, not a second way to check somebody
+in. One ticket held in front of a lens is dozens of frames, so the same code is
+ignored for four seconds after it lands — otherwise the second frame reports the
+person as already checked in, which at a door reads as a rejection.
+
+The QR encodes the ticket's **URL**, so `CheckInForm` now takes either: a bare
+code, or anything containing one. A phone's built-in camera, a generic scanner
+app and our own scanner all hand over a link, and the door is the worst possible
+place to ask somebody to retype the interesting part.
+
+The camera is released on `pagehide` and whenever the tab is hidden — a held
+camera keeps the indicator lit and the battery draining, and on some Androids
+the next page can't open it at all.
+
+### Going live
+
+Two commands, answering two different halves of "is this ready?".
+
+```bash
+python manage.py check --deploy    # the settings half
+python manage.py preflight         # the database half
+```
+
+`core/checks.py` adds three settings checks to Django's own deployment list,
+covering the things that **fail silently rather than crashing** — the app starts,
+serves pages and looks healthy while doing the wrong thing:
+
+| | What it catches |
+| --- | --- |
+| `varsity.W001` | `EMAIL_HOST` unset, so every ticket, receipt and confirmation link is discarded. `core.mail.send_mail` catches everything by design, which is what makes this quiet. |
+| `varsity.W002` | Uploads on a container filesystem that the next deploy rebuilds. Mount a volume or set `AWS_STORAGE_BUCKET_NAME`. |
+| `varsity.W003` | `SITE_BASE_URL` still localhost, so every link we email points at the machine that sent it. |
+
+CI fails on all three, and the deploy-check job sets real-shaped values to prove
+they can be satisfied.
+
+`preflight` asks the questions that only a running deployment can answer, and
+exits non-zero on anything that would actually hurt — so it works as the last
+step of a deploy pipeline. It's read-only, so it's safe to point at production.
+
+- **Any account still carrying the demo password** — checked by hashing, not by
+  username, because renaming `admin` to `admin2` is exactly the sort of thing
+  that feels like a fix and isn't. Staff accounts are named; the rest are
+  counted, since eighty identical lines is a way of not being read.
+- No universities (nobody could sign up), no superuser (nobody could reach
+  `/staff/`), paid events with no way to take money
+- Seed artwork still on events, payouts prepared but never sent, search vectors
+  never rebuilt, and the features sitting inert for want of a key
+
+**Clearing the demo and keeping the real reference data** is two commands:
+
+```bash
+python manage.py clear_demo --yes                  # societies, events, students, tickets
+python manage.py seed_demo --reference-only        # the 18 real universities, and nothing else
+```
+
+`--reference-only` loads the only part of `seed_demo` that is true and invents
+nothing. Run it on a fresh production database too: without universities the
+sign-up form has an empty required field and nobody can register at all.
+
 ### How availability is decided
 
 `Event.availability` returns one of `free`, `on_sale`, `waitlist`, `sold_out`, `closed` or
@@ -361,7 +566,7 @@ the site can't count them.
 python manage.py test
 ```
 
-354 tests, about a minute. It used to be far worse: PBKDF2 hashes the handful of users almost
+554 tests, about half a minute. It used to be far worse: PBKDF2 hashes the handful of users almost
 every `setUp` creates, at roughly a second apiece and much more on a slow machine, which put a
 full run into the tens of minutes and meant nobody ran one. Tests now hash with MD5 — see the
 `TESTING` block at the foot of `varsity/settings.py`, which also pins the cache to local memory,
@@ -390,6 +595,31 @@ polls in a second ask the gateway once but still spot a payment settled by callb
 queued email arrives when the broker is down, that a job whose row has been deleted logs rather
 than raises, and that hammering the gateway callback earns a 429 without blocking anybody else's
 payment.
+
+Trust gets its own suite: that a signed link confirms an address and a tampered,
+expired or forwarded-after-an-email-change one doesn't; that a dead mail server
+still lets somebody sign up; that an unconfirmed address can't register or claim
+a society; that a new society's events go to the queue and a verified one's go
+straight up; that a queued event is invisible to students and visible to the
+staff who must review it; that editing a live event doesn't unpublish it; and
+that verifying a society carries that trust to the people running it.
+
+Claims are tested for the handover: that approving makes the claimant the owner
+and an organizer but does *not* verify the society, that a rejection carries its
+reason, that a decided claim isn't decided twice, and that one society can't read
+another's statement.
+
+The ledger is tested where money would go wrong: that the fee is frozen at
+settlement and a later rate change doesn't restate it, that settling twice
+doesn't charge twice, that a half-cent rounds up rather than to even, that the
+fee can never exceed the ticket nor go negative, that preparing a payout twice
+can't pay the same tickets out twice, that cancelling returns them to the pool
+and a sent payout can't be cancelled at all.
+
+The door is tested on what a scanner actually hands over: a bare code, a scanned
+ticket URL, one from a hostname the site no longer uses, a long one that the
+field's own length check would otherwise reject before the code was found — and
+that a string with look-alike characters is *not* read as a code.
 
 The PWA gets its own: that the QR is inline rather than a second request, that
 the endpoint and the inline copy encode the same thing, that money and identity
@@ -456,6 +686,8 @@ Copy `.env.example` to `.env` and adjust. Everything has a sensible development 
 | `ECOCASH_MERCHANT_NUMBER`     | blank                          | Wallet students send money to             |
 | `ECOCASH_DIRECT_ENABLED`      | `True`                         | `False` hides the direct-transfer option  |
 | `ECOCASH_DIRECT_HOLD_MINUTES` | `120`                          | Seat hold for a hand-made transfer        |
+| `PLATFORM_FEE_PERCENT`        | `0`                            | Kept per ticket; frozen at settlement      |
+| `PLATFORM_FEE_FIXED`          | `0`                            | Flat amount kept per ticket                |
 
 Setting `DJANGO_DEBUG=False` enables HSTS, SSL redirect, secure cookies, and WhiteNoise's
 compressed manifest storage. Run `python manage.py collectstatic` before deploying.

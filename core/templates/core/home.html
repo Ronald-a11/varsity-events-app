@@ -17,31 +17,44 @@
     never arrives at all.
   {% endcomment %}
   <section class="relative overflow-hidden bg-brand-950">
-    <img src="{% static 'img/hero-universities.jpg' %}"
-         alt="The eighteen Zimbabwean universities, every kind of event they put on, all converging on one place."
-         class="absolute inset-0 h-full w-full object-cover object-center"
+    {% comment %}
+      object-position is art direction, not a design token. The subject sits
+      low in the frame, and a centred crop of a 1.5:1 photograph inside a 2.5:1
+      band shows the lighting rig instead of her. Inline rather than an
+      arbitrary Tailwind class, because such a class only exists after a CSS
+      rebuild — changing the number and forgetting to rebuild silently falls
+      back to centre.
+    {% endcomment %}
+    <img src="{% static 'img/hero-festival.jpg' %}"
+         alt="A student watching a live set from the middle of a festival crowd."
+         class="absolute inset-0 h-full w-full object-cover"
+         style="object-position: 50% 68%"
          fetchpriority="high" decoding="async" />
 
     {% comment %}
       Three overlays, each doing a different job.
 
-      The artwork is drawn for this — dark ground, university nodes held high,
-      the hub low under the buttons, and only curves crossing the band where
-      the headline lands — so these are lighter than they were under the stock
-      photograph they replaced.
+      Three overlays. The flat wash takes the brightness down; the scrim is a
+      soft pool under the words; the vertical gradient darkens the top, where
+      the transparent nav sits, and the foot, where the hero hands off to the
+      page colour without ending on a hard line.
 
-      The flat wash takes the overall brightness down a touch. The scrim is a
-      soft pool under the words. The vertical gradient darkens only the top,
-      where the transparent nav sits, and the foot, where the hero hands off to
-      the page colour without ending on a hard line.
+      Heavier than they were under the generated artwork, because a photograph
+      is bright wherever it happens to be bright — this one has a lit stage
+      across its top third — while the drawing was dark where the type goes by
+      construction.
 
-      The type still carries its own shadow (.text-on-photo). The hub is the
-      brightest thing in the frame and the crop moves with the viewport, so
-      legibility should not depend on what happens to be behind a given word.
+      The type also carries its own shadow (.text-on-photo), so legibility
+      stops depending on what the crop puts behind a given word.
+
+      `manage.py make_hero` still draws the diagram, and swapping this src back
+      to img/hero-universities.jpg restores it. Kept because the moment there
+      is a photograph of a real event on this platform, that is the hero, and
+      whichever of these is standing in should be easy to replace.
     {% endcomment %}
-    <div class="absolute inset-0 bg-brand-950/20"></div>
-    <div class="absolute inset-0 hero-scrim opacity-70"></div>
-    <div class="absolute inset-0 bg-gradient-to-b from-brand-950/55 via-transparent to-brand-950/80"></div>
+    <div class="absolute inset-0 bg-brand-950/45"></div>
+    <div class="absolute inset-0 hero-scrim"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-brand-950/75 via-transparent to-brand-950/85"></div>
 
     <div class="relative mx-auto max-w-4xl px-4 py-24 text-center sm:px-6 lg:py-36">
       <span class="chip animate-fade-up bg-brand-950/50 text-white ring-1 ring-inset ring-white/25 backdrop-blur">

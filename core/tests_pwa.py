@@ -302,12 +302,30 @@ class HeroArtworkTests(TestCase):
             make_hero(size=(600, 250)).getvalue(),
         )
 
-    def test_the_committed_hero_exists_and_is_the_one_the_page_asks_for(self):
-        """CI has no Pillow step, so a missing file here is a broken homepage."""
+    def test_the_generated_hero_is_committed(self):
+        """CI has no Pillow step, so the drawn hero has to be in the repo even
+        when a photograph is the one currently in use — swapping back is a
+        one-line change and should not need a Pillow install to make good."""
         from django.conf import settings
 
         path = Path(settings.BASE_DIR) / "static" / "img" / "hero-universities.jpg"
         self.assertTrue(path.exists(), "Run `manage.py make_hero` and commit the result.")
 
+    def test_the_homepage_hero_image_actually_exists_on_disk(self):
+        """Asserts the invariant rather than which picture happens to be in.
+
+        The hero has been a stock crowd, a drawn diagram and a festival
+        photograph inside a day. What must never change is that the file the
+        page asks for is one that ships.
+        """
+        import re
+
+        from django.conf import settings
+
         response = self.client.get("/")
-        self.assertContains(response, "hero-universities")
+        match = re.search(rb'<img src="(/static/img/[^"]+)"', response.content)
+        self.assertIsNotNone(match, "The homepage hero has no <img>.")
+
+        name = match.group(1).decode().rsplit("/", 1)[-1]
+        path = Path(settings.BASE_DIR) / "static" / "img" / name
+        self.assertTrue(path.exists(), f"The homepage asks for {name}, which is not committed.")

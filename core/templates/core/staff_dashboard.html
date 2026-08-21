@@ -16,6 +16,7 @@
       <div class="flex gap-2">
         <a href="{% url 'core:staff_societies' %}" class="btn-secondary">Societies{% if stats.unverified %} <span class="chip bg-amber-100 text-amber-800">{{ stats.unverified }}</span>{% endif %}</a>
         <a href="{% url 'core:staff_claims' %}" class="btn-secondary">Claims{% if stats.claims %} <span class="chip bg-flame-100 text-flame-700">{{ stats.claims }}</span>{% endif %}</a>
+        <a href="{% url 'core:staff_reports' %}" class="btn-secondary">Reports{% if stats.reports %} <span class="chip bg-rose-100 text-rose-700">{{ stats.reports }}</span>{% endif %}</a>
         <a href="{% url 'admin:index' %}" class="btn-ghost">Django admin</a>
       </div>
     </div>

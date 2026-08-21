@@ -1,5 +1,7 @@
 from django import forms
 
+from core.models import Report
+
 BASE_INPUT = (
     "w-full rounded-xl border border-hairline bg-surface px-4 py-2.5 text-sm text-ink "
     "placeholder:text-ink-subtle shadow-sm transition duration-200 "
@@ -70,3 +72,38 @@ class DateTimeLocalInput(forms.DateTimeInput):
 
     def __init__(self, attrs=None):
         super().__init__(attrs=attrs, format="%Y-%m-%dT%H:%M")
+
+
+class ReportForm(TailwindFormMixin, forms.ModelForm):
+    """Telling us an event or a society shouldn't be up.
+
+    A reason and, optionally, a sentence. Deliberately short: a form that asks
+    for an essay gets abandoned by the person who spotted the scam and
+    completed by the person with a grievance.
+    """
+
+    class Meta:
+        model = Report
+        fields = ("reason", "detail")
+        widgets = {
+            "reason": forms.RadioSelect,
+            "detail": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": (
+                        "What made you think so? Anything we can check helps — a "
+                        "screenshot you saw, a number you were asked to send money to, "
+                        "the real date."
+                    ),
+                }
+            ),
+        }
+        labels = {"reason": "What's wrong with it?", "detail": "Tell us more (optional)"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Radios shouldn't carry the text-input styling the mixin applies to
+        # everything, and there is no sensible default reason to preselect.
+        self.fields["reason"].widget.attrs.pop("class", None)
+        self.fields["reason"].empty_label = None
+        self.fields["detail"].required = False

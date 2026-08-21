@@ -169,5 +169,14 @@
         {% endif %}
       </aside>
     </div>
+
+    <!-- Report -->
+    {% if user.is_authenticated and not can_manage %}
+      <p class="mt-10 border-t border-hairline pt-6 text-center text-xs text-ink-subtle">
+        Is this society pretending to be someone it isn't?
+        <a href="{% url 'core:report' 'society' organization.slug %}" class="font-medium underline underline-offset-2 hover:text-ink-muted">Report it</a>
+        and a person will look.
+      </p>
+    {% endif %}
   </div>
 {% endblock %}

@@ -21,6 +21,7 @@ Built with **Django 5.2** and **Tailwind CSS 3**.
 - **Pay with Pesepay** — EcoCash, OneMoney, InnBucks, Zimswitch or card — and the ticket confirms itself
 - One-tap registration issuing a ticket with a unique code and QR; automatic waitlists when full
 - Save events, follow societies, export to calendar, review events you attended
+- **Report** anything that looks like a scam, and a person looks at it
 - **⌘K** anywhere to search events, societies and universities; light and dark themes
 - A **live pulse board** at `/live/` showing what's happening across the country as it happens
 
@@ -44,6 +45,8 @@ Built with **Django 5.2** and **Tailwind CSS 3**.
 - Filter by university, status, or whether it's been picked
 - **Pick** events to lead the site, publish, unpublish, cancel, mark sold out, or delete
 - Work the **review queue** — a new society's events wait there before students see them
+- Answer **reports** at `/staff/reports/` — anything live that students have flagged,
+  grouped by what it points at and led by whatever the most people have reported
 - Verify and suspend societies at `/staff/societies/`, and hand pages to their real
   committees at `/staff/claims/`
 - **Pay the societies** at `/pay/payouts/`: what each is owed, and the record of what went
@@ -146,6 +149,8 @@ static/src/       Tailwind source — compiled to static/css/app.css
 - **Bookmark**, **EventUpdate**, **Review** — saved events, announcements and feedback.
 - **OrganizationClaim** — somebody saying "this is my society", with the evidence
   and the verdict. Approving one hands over the page.
+- **Report** — somebody saying an event or a society shouldn't be up. Points at
+  exactly one of the two, enforced by a check constraint.
 - **Payout** — one settlement from the platform to a society, claiming the sales
   it covers so the same money can't go out twice.
 
@@ -506,6 +511,42 @@ The camera is released on `pagehide` and whenever the tab is hidden — a held
 camera keeps the indicator lit and the battery draining, and on some Androids
 the next page can't open it at all.
 
+### Reporting something that shouldn't be up
+
+The review queue catches a bad event *before* students see it, but only from a
+society we haven't verified. Reports are the other direction: everything already
+live, watched by the several thousand people best placed to notice — the
+students standing in front of it.
+
+A discreet line at the foot of every event and society page, not a button
+competing with *Get a ticket*, but findable by somebody who has just been asked
+to EcoCash a stranger. Seven reasons and an optional sentence; a form that asks
+for an essay is abandoned by the person who spotted the scam and completed by
+the person with a grievance.
+
+**Signing in is required, deliberately.** An anonymous report queue is a spam
+queue: nobody can follow one up, a grudge costs nothing to file, and the reports
+that matter get buried under the ones that don't. It's rate limited per user for
+the same reason. Staff can see who reported something; the society cannot.
+
+**A report is about a thing, not a conversation.** Twenty people reporting the
+same scam is one problem, so the queue groups reports by what they point at,
+leads with whatever has the most, and closes every open report on a target the
+moment staff decide about it. A queue full of decided-but-still-listed
+duplicates is a queue that stops being worked.
+
+Only the **first** open report about something emails staff. The twentieth is
+not news, and twenty emails is a filter rule and then a missed alert.
+
+Nothing comes down automatically. When staff do uphold a report, an event goes
+back to a **draft** rather than being deleted — deleting it would take its
+registrations and payment records with it, and those are exactly what somebody
+will need if money moved. A society is suspended, which hides it and its events
+without destroying the record either.
+
+`preflight` counts unanswered reports as a **warning**, not a note: it is the one
+queue where a backlog is measured in students' money.
+
 ### Going live
 
 Two commands, answering two different halves of "is this ready?".
@@ -568,7 +609,7 @@ the site can't count them.
 python manage.py test
 ```
 
-554 tests, about half a minute. It used to be far worse: PBKDF2 hashes the handful of users almost
+594 tests, about forty seconds. It used to be far worse: PBKDF2 hashes the handful of users almost
 every `setUp` creates, at roughly a second apiece and much more on a slow machine, which put a
 full run into the tens of minutes and meant nobody ran one. Tests now hash with MD5 — see the
 `TESTING` block at the foot of `varsity/settings.py`, which also pins the cache to local memory,
@@ -617,6 +658,14 @@ doesn't charge twice, that a half-cent rounds up rather than to even, that the
 fee can never exceed the ticket nor go negative, that preparing a payout twice
 can't pay the same tickets out twice, that cancelling returns them to the pool
 and a sent payout can't be cancelled at all.
+
+Reports are tested on the things that make a moderation queue work or not: that
+deciding about one target closes every open report on it and leaves reports about
+anything else alone, that upholding one drafts the event rather than deleting its
+registrations, that only the first report emails staff, that a decided report is
+not decided twice, that the most-reported thing leads the queue even when a
+quieter complaint arrived first, and that a report must point at exactly one
+thing — checked in the database, not just the form.
 
 The door is tested on what a scanner actually hands over: a bare code, a scanned
 ticket URL, one from a hostname the site no longer uses, a long one that the

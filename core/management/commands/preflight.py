@@ -17,6 +17,7 @@ from django.db import connection
 
 from accounts.models import University, User
 from events.models import Category, Event
+from core.models import Report
 from organizations.models import Organization
 from payments.models import Payout, societies_owed
 
@@ -145,6 +146,15 @@ class Command(BaseCommand):
         if unverified:
             result.notes.append(
                 f"{unverified} society(ies) unverified - their events go through review."
+            )
+
+        open_reports = Report.objects.filter(status=Report.Status.OPEN).count()
+        if open_reports:
+            # A warning rather than a note: something live has been flagged as a
+            # scam and nobody has looked. That is the one queue where a backlog
+            # is measured in students' money.
+            result.warnings.append(
+                f"{open_reports} unanswered report(s) about live content - see /staff/reports/."
             )
 
         unconfirmed = User.objects.filter(

@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from django.db import connections
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import dateformat, timezone
 from django.utils.timezone import localtime
@@ -12,6 +12,8 @@ from django_ratelimit.decorators import ratelimit
 
 from accounts.models import University, User
 from core import mail
+from core.forms import ReportForm
+from core.models import Report, open_reports_for
 from events.models import Category, Event, Registration, TicketStatus
 from accounts.twofactor import requires_second_factor
 from events.search import search_events
@@ -291,6 +293,7 @@ def staff_dashboard(request):
             "claims": OrganizationClaim.objects.filter(
                 status=OrganizationClaim.Status.PENDING
             ).count(),
+            "reports": Report.objects.filter(status=Report.Status.OPEN).count(),
             "drafts": all_events.filter(status=Event.Status.DRAFT).count(),
             "picked": all_events.filter(is_featured=True).count(),
             "upcoming": all_events.filter(
@@ -516,3 +519,170 @@ def ratelimited(request, exception=None):
 
     response["Retry-After"] = "60"
     return response
+
+
+# --------------------------------------------------------------------------
+# Reports — the students standing in front of it telling us it's wrong
+# --------------------------------------------------------------------------
+
+
+def _reported_thing(kind, slug):
+    """The event or society being reported, or a 404."""
+    if kind == "event":
+        return get_object_or_404(Event.objects.select_related("organization"), slug=slug), "event"
+    if kind == "society":
+        return get_object_or_404(Organization, slug=slug), "organization"
+    raise Http404("Nothing to report.")
+
+
+@login_required
+@ratelimit(key="user", rate="10/h", method="POST", block=True)
+def report(request, kind, slug):
+    """Report an event or a society.
+
+    Signed in, deliberately. An anonymous report queue is a spam queue: nobody
+    can follow one up, a grudge costs nothing to file, and the reports that
+    matter get buried under the ones that don't. Signing in makes a false report
+    cost something and gives us somebody to ask.
+
+    Rate limited per user for the same reason.
+    """
+    target, field = _reported_thing(kind, slug)
+
+    # A society reporting itself, or an organizer reporting their own event, is
+    # somebody looking for the delete button in the wrong place.
+    owner = target.organization if field == "event" else target
+    if owner.can_manage(request.user):
+        messages.info(
+            request,
+            "This is yours to edit or cancel — you don't need to report it to us.",
+        )
+        return redirect(target.get_absolute_url())
+
+    existing = Report.objects.filter(
+        reporter=request.user, status=Report.Status.OPEN, **{field: target}
+    ).first()
+    if existing:
+        messages.info(
+            request,
+            "You've already reported this and we're looking at it. "
+            "Reply to us if there's something new.",
+        )
+        return redirect(target.get_absolute_url())
+
+    form = ReportForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        new_report = form.save(commit=False)
+        new_report.reporter = request.user
+        setattr(new_report, field, target)
+
+        # First open report on this thing is the alert; the twentieth is not.
+        # Counted before saving, so the new row isn't counted as a predecessor.
+        first = not open_reports_for(target).exists()
+        new_report.save()
+
+        if first:
+            mail.send_report_alert(new_report)
+
+        messages.success(
+            request,
+            "Thank you — that's with us. Somebody will look at it, and we act on "
+            "anything that turns out to be real.",
+        )
+        return redirect(target.get_absolute_url())
+
+    return render(
+        request,
+        "core/report.html",
+        {
+            "form": form,
+            "target": target,
+            "target_kind": "event" if field == "event" else "society",
+            "target_name": target.title if field == "event" else target.name,
+        },
+    )
+
+
+@staff_required
+def staff_reports(request):
+    """The moderation queue.
+
+    Sorted by how many people have reported the same thing, then by age. A scam
+    twenty people have flagged needs answering before a single grumble about a
+    venue change, and a queue in pure arrival order buries exactly the wrong
+    one. Reports about the same target are shown together, because they are one
+    decision rather than several.
+    """
+    show = request.GET.get("show", "open")
+
+    reports = Report.objects.select_related(
+        "event", "event__organization", "organization", "reporter", "reviewed_by"
+    )
+    if show == "open":
+        reports = reports.filter(status=Report.Status.OPEN)
+    elif show in {Report.Status.ACTIONED, Report.Status.DISMISSED}:
+        reports = reports.filter(status=show).order_by("-reviewed_at")
+
+    groups = []
+    if show == "open":
+        # Group in Python rather than in SQL: the queue is small by nature (a
+        # backlog here is a failure, not a scaling problem) and grouping over
+        # two nullable keys in the database costs more than it saves.
+        buckets = {}
+        for item in reports:
+            key = ("event", item.event_id) if item.event_id else ("society", item.organization_id)
+            buckets.setdefault(key, []).append(item)
+
+        groups = [
+            {
+                "lead": items[0],
+                "reports": items,
+                "count": len(items),
+            }
+            for items in buckets.values()
+        ]
+        groups.sort(key=lambda group: (-group["count"], group["lead"].created_at))
+
+    paginator = Paginator(reports if show != "open" else [], 25)
+    page = paginator.get_page(request.GET.get("page")) if show != "open" else None
+
+    return render(
+        request,
+        "core/staff_reports.html",
+        {
+            "groups": groups,
+            "decided": page.object_list if page else [],
+            "page_obj": page,
+            "open_count": Report.objects.filter(status=Report.Status.OPEN).count(),
+            "selected": {"show": show},
+        },
+    )
+
+
+@staff_required
+@require_POST
+def staff_report_action(request, pk, action):
+    """Judge the thing that was reported, not the complaint about it."""
+    item = get_object_or_404(
+        Report.objects.select_related("event", "organization"), pk=pk
+    )
+
+    if not item.is_open:
+        messages.info(request, "That one has already been decided.")
+        return redirect("core:staff_reports")
+
+    note = (request.POST.get("note") or "").strip()
+    name = item.target_name
+
+    if action == "dismiss":
+        closed = item.dismiss(request.user, note)
+        messages.info(request, f"“{name}” stays up. {closed} report(s) closed.")
+    elif action == "uphold":
+        closed = item.uphold(request.user, note)
+        gone = "taken off the feed" if item.target_kind == "event" else "suspended"
+        messages.warning(request, f"“{name}” {gone}. {closed} report(s) closed.")
+    else:
+        messages.error(request, "Unknown action.")
+
+    return redirect("core:staff_reports")

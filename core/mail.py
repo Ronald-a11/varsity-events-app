@@ -264,3 +264,31 @@ def send_payout_sent(payout) -> bool:
             ),
         },
     )
+
+
+def send_report_alert(report) -> bool:
+    """Tell platform staff something on the feed has been reported.
+
+    Sent on the *first* open report about a thing, not on every one. Twenty
+    people reporting the same scam is one alert; twenty emails is a filter rule
+    and then a missed alert.
+    """
+    from accounts.models import User
+
+    recipients = [
+        person.email
+        for person in User.objects.filter(is_staff=True, is_active=True)
+        if person.email
+    ]
+    return send_mail(
+        to=recipients,
+        subject=f"Reported: {report.target_name}",
+        template="report_alert",
+        context={
+            "report": report,
+            "target_name": report.target_name,
+            "target_kind": report.target_kind,
+            "target_url": absolute_url(report.target.get_absolute_url()),
+            "queue_url": absolute_url(reverse("core:staff_reports")),
+        },
+    )

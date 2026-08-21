@@ -316,6 +316,47 @@
     @apply bg-gradient-to-br from-white via-flame-200 to-flame-400 bg-clip-text text-transparent;
   }
 
+  /* Type set over a photograph.
+   *
+   * A scrim alone cannot save text on a hero, because the bright part of the
+   * picture moves with the crop: the stage lights sit dead centre at one
+   * viewport width and off to the side at another. A shadow travels with the
+   * letterforms instead, so legibility stops depending on what happens to be
+   * behind them.
+   *
+   * Two shadows, deliberately: a tight dark one for edge contrast against a
+   * blown-out highlight, and a wide soft one that lifts the whole block off
+   * the image without reading as a drop shadow. */
+  .text-on-photo {
+    text-shadow:
+      0 1px 2px rgb(10 11 26 / 0.55),
+      0 8px 28px rgb(10 11 26 / 0.45);
+  }
+
+  /* The gradient text has no glyph fill to cast a shadow — the colour lives in
+   * the background, clipped to the text — so it gets a soft dark halo behind
+   * the element instead. */
+  .text-gradient.text-on-photo {
+    text-shadow: none;
+    filter: drop-shadow(0 2px 10px rgb(10 11 26 / 0.55));
+  }
+}
+
+@layer utilities {
+  /* A pool of darkness under the words, fading out before it reaches the edges
+   * of the frame. The point is that the picture stays visible where it is
+   * doing the work — silhouetted hands at the foot, stage colour at the
+   * sides — while the middle, where the type sits, is calm enough to read. */
+  .hero-scrim {
+    background: radial-gradient(
+      ellipse 75% 60% at 50% 42%,
+      rgb(17 18 38 / 0.82) 0%,
+      rgb(17 18 38 / 0.62) 45%,
+      rgb(17 18 38 / 0.28) 72%,
+      rgb(17 18 38 / 0.1) 100%
+    );
+  }
+
   .text-balance {
     text-wrap: balance;
   }

@@ -22,30 +22,42 @@
          fetchpriority="high" decoding="async" />
 
     {% comment %}
-      Two overlays doing different jobs. The flat wash buys contrast for white
-      text anywhere on the image; the vertical gradient darkens only the top,
-      where the transparent nav sits, and the foot, where the hero has to hand
-      off to the page colour without ending on a hard line.
+      Three overlays, each doing a different job.
+
+      The flat wash takes the overall brightness down a little. The scrim is
+      the one that matters: a soft pool of darkness under the words that fades
+      out before the edges, so the picture keeps doing its work where it is
+      strongest — silhouetted hands at the foot, stage colour at the sides —
+      while the middle stays calm enough to read. The vertical gradient
+      darkens only the top, where the transparent nav sits, and the foot, where
+      the hero hands off to the page colour without ending on a hard line.
+
+      A flat wash on its own could not fix this. The brightest part of the
+      photograph is the stage, and the crop moves it: dead centre behind the
+      text at one viewport width, off to the side at another. So the type also
+      carries its own shadow (.text-on-photo) and stops depending on what
+      happens to be behind it.
 
       Tuned so the crowd is still legible. Stacking enough darkness to make
       text trivially safe leaves a photograph nobody can see, which is the
       same as having no photograph and a slower page.
     {% endcomment %}
-    <div class="absolute inset-0 bg-brand-950/55"></div>
-    <div class="absolute inset-0 bg-gradient-to-b from-brand-950/75 via-brand-950/20 to-brand-950/85"></div>
+    <div class="absolute inset-0 bg-brand-950/35"></div>
+    <div class="absolute inset-0 hero-scrim"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-brand-950/70 via-transparent to-brand-950/85"></div>
 
     <div class="relative mx-auto max-w-4xl px-4 py-24 text-center sm:px-6 lg:py-36">
-      <span class="chip animate-fade-up bg-white/10 text-white ring-1 ring-inset ring-white/20 backdrop-blur">
+      <span class="chip animate-fade-up bg-brand-950/50 text-white ring-1 ring-inset ring-white/25 backdrop-blur">
         <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span>
         🇿🇼 {{ stats.universities }} universities · {{ stats.societies }} societies · {{ stats.events }} events
       </span>
 
-      <h1 class="mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tightest text-white text-balance sm:text-6xl lg:text-7xl">
+      <h1 class="text-on-photo mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tightest text-white text-balance sm:text-6xl lg:text-7xl">
         Every university event in Zimbabwe,
-        <span class="text-gradient">one place.</span>
+        <span class="text-gradient text-on-photo">one place.</span>
       </h1>
 
-      <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-brand-100/90 text-balance">
+      <p class="text-on-photo mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/95 text-balance">
         Campus events live in WhatsApp groups, faded notice-board posters and statuses that
         expire in 24 hours. {{ SITE_NAME }} puts them all on one page — searchable, ticketed,
         and honest about whether tickets are still going.
@@ -60,7 +72,7 @@
         </a>
       </div>
 
-      <p class="mt-5 text-sm text-brand-100/70">
+      <p class="text-on-photo mt-5 text-sm text-white/80">
         Free for every student. Sign in and your feed fills with what's on this week.
       </p>
     </div>

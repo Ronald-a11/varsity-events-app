@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.utils import timezone
 
@@ -175,9 +177,17 @@ class ReviewForm(TailwindFormMixin, forms.ModelForm):
         }
 
 
+# Mirrors generate_ticket_code(): VE-XXXX-XXXX over an alphabet with no
+# look-alike characters. Kept next to the only thing that parses one.
+TICKET_CODE_PATTERN = re.compile(r"VE-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}")
+
+
 class CheckInForm(forms.Form):
     ticket_code = forms.CharField(
-        max_length=20,
+        # Long enough for a scanned URL, not just the code inside it — the
+        # field's own length check runs before clean_ticket_code gets to pull
+        # the code out, so a 20-character limit would reject every scan.
+        max_length=300,
         label="Ticket code",
         widget=forms.TextInput(
             attrs={
@@ -189,9 +199,21 @@ class CheckInForm(forms.Form):
                 "placeholder": "VE-XXXX-XXXX",
                 "autofocus": "autofocus",
                 "autocomplete": "off",
+                # What the camera scanner fills in. See static/js/scanner.js.
+                "data-scanner-target": "",
             }
         ),
     )
 
     def clean_ticket_code(self):
-        return self.cleaned_data["ticket_code"].strip().upper()
+        """Accept a code, or anything a scanner might hand over containing one.
+
+        The QR on a ticket encodes the ticket's *URL*, so a phone's built-in
+        camera, a generic scanner app and our own in-page scanner all produce
+        `https://…/events/tickets/VE-8F3K-2QD7/` rather than the bare code. The
+        door is not the place to ask somebody to retype the interesting part.
+        """
+        raw = (self.cleaned_data["ticket_code"] or "").strip().upper()
+
+        match = TICKET_CODE_PATTERN.search(raw)
+        return match.group(0) if match else raw

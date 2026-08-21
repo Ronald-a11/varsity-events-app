@@ -616,6 +616,10 @@ def dashboard(request):
     upcoming = events.filter(ends_at__gte=now).order_by("starts_at")
     past = events.filter(ends_at__lt=now).order_by("-starts_at")
     drafts = events.filter(status=Event.Status.DRAFT).order_by("starts_at")
+    # Queued events are neither live nor the organizer's to edit-and-forget:
+    # they are waiting on us, and saying so is what stops the "did it work?"
+    # email.
+    in_review = events.awaiting_review()
 
     total_registrations = Registration.objects.filter(
         event__in=events, status=Registration.Status.CONFIRMED
@@ -645,10 +649,15 @@ def dashboard(request):
             },
         )
 
+    actions.append(
+        {"label": "Earnings", "url": reverse("payments:earnings"), "style": "ghost"}
+    )
+
     context = {
         "upcoming_events": upcoming,
         "past_events": past[:10],
         "drafts": drafts,
+        "in_review": in_review,
         "crumbs": [{"label": "Manage"}, {"label": "Dashboard"}],
         "actions": actions,
         "organizations": request.user.managed_organizations(),
@@ -668,6 +677,43 @@ def dashboard(request):
     return render(request, "events/dashboard.html", context)
 
 
+PUBLICATION_FIELDS = ["status", "submitted_at", "reviewed_at", "reviewed_by", "review_note"]
+
+
+def _announce_publish_outcome(request, event):
+    """Tell the organizer where a press of Publish actually landed.
+
+    Three outcomes, and they are told which one plainly — "saved as a draft"
+    when they thought they had published is the kind of silence that ends with
+    a society finding out on the night.
+    """
+    status = event.status
+
+    if status == Event.Status.PUBLISHED:
+        record(
+            Activity.Verb.PUBLISHED,
+            actor=request.user,
+            event=event,
+            organization=event.organization,
+        )
+        messages.success(request, f"“{event.title}” is live.")
+    elif status == Event.Status.REVIEW:
+        messages.info(
+            request,
+            f"“{event.title}” has gone to us for a quick check — societies we haven't "
+            "verified yet get one look before their events reach students. "
+            "You'll get an email either way.",
+        )
+    else:
+        messages.warning(
+            request,
+            f"“{event.title}” is saved as a draft. Confirm your email address and "
+            "you can put it in front of students.",
+        )
+
+    return status
+
+
 @login_required
 def event_create(request):
     organizations = request.user.managed_organizations()
@@ -683,26 +729,23 @@ def event_create(request):
     if request.method == "POST" and form.is_valid() and outlets.is_valid():
         event = form.save(commit=False)
         event.created_by = request.user
-        event.status = (
-            Event.Status.PUBLISHED if request.POST.get("action") == "publish" else Event.Status.DRAFT
-        )
-        event.save()
+        event.status = Event.Status.DRAFT
 
+        if request.POST.get("action") == "publish":
+            # Decide before the first save so the row is never briefly written
+            # as published — a listing query landing in that window would put
+            # an unreviewed event on the feed.
+            event.submit_for_publication(request.user)
+
+        event.save()
         outlets.instance = event
         outlets.save()
 
-        if event.status == Event.Status.PUBLISHED:
-            record(
-                Activity.Verb.PUBLISHED,
-                actor=request.user,
-                event=event,
-                organization=event.organization,
-            )
+        if request.POST.get("action") == "publish":
+            _announce_publish_outcome(request, event)
+        else:
+            messages.success(request, f"“{event.title}” saved as a draft.")
 
-        messages.success(
-            request,
-            f"“{event.title}” {'is live' if event.status == Event.Status.PUBLISHED else 'saved as a draft'}.",
-        )
         return redirect("events:manage_attendees", slug=event.slug)
 
     return render(
@@ -787,21 +830,24 @@ def event_edit(request, slug):
 
         action = request.POST.get("action")
         if action == "publish":
-            was_draft = event.status != Event.Status.PUBLISHED
-            event.status = Event.Status.PUBLISHED
-            event.save(update_fields=["status"])
-            if was_draft:
-                record(
-                    Activity.Verb.PUBLISHED,
-                    actor=request.user,
-                    event=event,
-                    organization=event.organization,
-                )
+            was_live = event.status == Event.Status.PUBLISHED
+            event.submit_for_publication(request.user)
+            event.save(update_fields=PUBLICATION_FIELDS)
+            if not was_live:
+                _announce_publish_outcome(request, event)
+            else:
+                messages.success(request, "Event updated.")
         elif action == "unpublish":
             event.status = Event.Status.DRAFT
             event.save(update_fields=["status"])
+            messages.info(request, "Event updated and taken off the feed.")
+        else:
+            messages.success(request, "Event updated.")
 
-        messages.success(request, "Event updated.")
+        # A published event edited into something else is the loophole worth
+        # closing here; `submit_for_publication` leaves a live event live, so
+        # material changes to one still want a staff eye. That is the staff
+        # dashboard's job, not a silent unpublish that strands ticket-holders.
         return redirect(event.get_absolute_url())
 
     return render(

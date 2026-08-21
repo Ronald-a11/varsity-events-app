@@ -1,0 +1,15 @@
+Hi {{ user.first_name|default:user.username }},
+
+Confirm your email address so tickets, receipts and waitlist messages can
+reach you:
+
+{{ verify_url }}
+
+The link works for {{ expires_in }}. If it has expired, sign in and we will
+send you a fresh one.
+
+Didn't sign up? Ignore this email. Without this link the address stays
+unconfirmed and nothing can be published in your name.
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.

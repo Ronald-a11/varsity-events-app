@@ -10,10 +10,11 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import University, User
 from activity.models import Activity, record
+from core import mail
 from events.models import Event
 
-from .forms import MembershipForm, OrganizationForm
-from .models import Membership, Organization
+from .forms import MembershipForm, OrganizationClaimForm, OrganizationForm
+from .models import Membership, Organization, OrganizationClaim
 
 
 def _society_tabs(request, selected_kind, selected_sort):
@@ -176,6 +177,7 @@ def organization_detail(request, slug):
         "is_following": request.user.is_authenticated
         and organization.followers.filter(pk=request.user.pk).exists(),
         "can_manage": organization.can_manage(request.user),
+        "open_claim": organization.open_claim_from(request.user),
         "total_events": organization.events.published().count(),
     }
     return render(request, "organizations/organization_detail.html", context)
@@ -183,6 +185,17 @@ def organization_detail(request, slug):
 
 @login_required
 def organization_create(request):
+    # Registering a society claims a name in front of the whole country, and an
+    # invented committee is the cheapest way to sell tickets to an event that
+    # will never happen. A confirmed address is the least this can cost.
+    if not request.user.email_is_verified:
+        messages.warning(
+            request,
+            "Confirm your email address first — we've sent you a link. "
+            "Registering a society is the one thing we ask that for.",
+        )
+        return redirect("accounts:profile")
+
     form = OrganizationForm(request.POST or None, request.FILES or None)
 
     if request.method == "POST" and form.is_valid():
@@ -203,7 +216,9 @@ def organization_create(request):
 
         messages.success(
             request,
-            f"“{organization.name}” is registered. You can publish its first event now.",
+            f"“{organization.name}” is registered. Create its first event whenever you're "
+            "ready — we check the first few from a new society before they reach students, "
+            "and once you're verified they go straight up.",
         )
         return redirect(organization.get_absolute_url())
 
@@ -313,5 +328,71 @@ def manage_members(request, slug):
             "organization": organization,
             "memberships": memberships,
             "member_form": MembershipForm(),
+        },
+    )
+
+
+@login_required
+def claim_organization(request, slug):
+    """Ask to be given a society that is already listed.
+
+    The supply side of the directory depends on this: societies can be listed
+    from public information long before anybody from them signs up, and this is
+    how the real committee takes over the page rather than creating a duplicate
+    beside it — which is what happens without it, and leaves students choosing
+    between two pages for the same society.
+    """
+    organization = get_object_or_404(Organization, slug=slug, is_active=True)
+
+    if organization.can_manage(request.user):
+        messages.info(request, f"You already run {organization.name}.")
+        return redirect(organization.get_absolute_url())
+
+    # Same bar as registering one from scratch: this ends in control of a
+    # society's money and its attendee lists.
+    if not request.user.email_is_verified:
+        messages.warning(
+            request,
+            "Confirm your email address first — we've sent you a link. "
+            "Claiming a society is one of the few things we ask that for.",
+        )
+        return redirect("accounts:profile")
+
+    existing = organization.open_claim_from(request.user)
+    if existing:
+        messages.info(
+            request,
+            f"You already have a claim on {organization.name} waiting with us. "
+            "We'll email you when it's been looked at.",
+        )
+        return redirect(organization.get_absolute_url())
+
+    form = OrganizationClaimForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        claim = form.save(commit=False)
+        claim.organization = organization
+        claim.user = request.user
+        claim.save()
+
+        mail.send_claim_received(claim)
+        messages.success(
+            request,
+            f"Your claim on {organization.name} is with us. We'll email you either way — "
+            "usually within a day or two.",
+        )
+        return redirect(organization.get_absolute_url())
+
+    return render(
+        request,
+        "organizations/organization_claim.html",
+        {
+            "organization": organization,
+            "form": form,
+            "crumbs": [
+                {"label": "Societies", "url": reverse("organizations:list")},
+                {"label": organization.name, "url": organization.get_absolute_url()},
+                {"label": "Claim"},
+            ],
         },
     )

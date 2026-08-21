@@ -67,7 +67,17 @@ class User(AbstractUser):
     interests = models.ManyToManyField(
         "events.Category", blank=True, related_name="interested_users"
     )
-    is_verified_organizer = models.BooleanField(default=False)
+    is_verified_organizer = models.BooleanField(
+        default=False,
+        help_text=(
+            "Staff have confirmed this person really runs what they say they run. "
+            "Their events skip the review queue even from an unverified society."
+        ),
+    )
+    # Null until they click the link we email them. Deliberately a timestamp
+    # rather than a boolean: "when did we last prove this address reaches a
+    # human" is the question you want to answer when an address starts bouncing.
+    email_verified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = "username"
@@ -93,9 +103,44 @@ class User(AbstractUser):
         return (first + last).upper()
 
     @property
+    def email_is_verified(self):
+        """Has this address been proved to reach a human?
+
+        Staff are exempt: they are created by `createsuperuser`, which never
+        sends anything, and locking the only administrator out of the admin
+        because nobody clicked a link is not a security posture.
+        """
+        return bool(self.email_verified_at) or self.is_staff or self.is_superuser
+
+    @property
     def can_organize(self):
-        """Organizers, staff and superusers may create events."""
+        """Organizers, staff and superusers may create events.
+
+        Verifying the address is a separate question, asked by `can_publish` —
+        an unverified organizer can still write a draft, they just can't put it
+        in front of the country.
+        """
         return self.is_superuser or self.role in {self.Role.ORGANIZER, self.Role.STAFF}
+
+    @property
+    def can_publish(self):
+        """May put something in front of students.
+
+        The bar for writing a draft is low on purpose; the bar for publishing
+        is a confirmed email address, because that is the only thing standing
+        between a throwaway signup and a paid event on the national feed.
+        """
+        return self.email_is_verified
+
+    @property
+    def publishes_without_review(self):
+        """Can go live directly, rather than through the staff queue.
+
+        Either the platform trusts the person (`is_verified_organizer`, set when
+        staff verify a society they run) or it trusts nobody and everything
+        waits. Society-level trust is checked separately, on the society.
+        """
+        return self.is_superuser or self.is_staff or self.is_verified_organizer
 
     @property
     def is_platform_staff(self):

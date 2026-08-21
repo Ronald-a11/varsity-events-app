@@ -647,6 +647,8 @@ class StaffCurationTests(EventTestCase):
 
 class OrganizationTests(EventTestCase):
     def test_creating_a_society_makes_the_creator_its_owner(self):
+        self.student.email_verified_at = timezone.now()
+        self.student.save(update_fields=["email_verified_at"])
         self.client.force_login(self.student)
         self.client.post(
             reverse("organizations:create"),
@@ -658,6 +660,17 @@ class OrganizationTests(EventTestCase):
 
         self.assertTrue(org.can_manage(self.student))
         self.assertEqual(self.student.role, User.Role.ORGANIZER)
+
+    def test_an_unconfirmed_address_cannot_register_a_society(self):
+        """The cheapest way to sell a ticket to nothing is an invented committee."""
+        self.client.force_login(self.student)
+        response = self.client.post(
+            reverse("organizations:create"),
+            {"name": "Ghost Club", "kind": "club", "tagline": "", "description": ""},
+        )
+
+        self.assertFalse(Organization.objects.filter(name="Ghost Club").exists())
+        self.assertRedirects(response, reverse("accounts:profile"))
 
     def test_follow_toggles_on_and_off(self):
         self.client.force_login(self.student)

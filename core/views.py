@@ -11,10 +11,11 @@ from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from accounts.models import University, User
+from core import mail
 from events.models import Category, Event, Registration, TicketStatus
 from accounts.twofactor import requires_second_factor
 from events.search import search_events
-from organizations.models import Organization
+from organizations.models import Organization, OrganizationClaim
 
 
 def _bookmarked_ids(request):
@@ -286,6 +287,10 @@ def staff_dashboard(request):
             "societies": Organization.objects.filter(is_active=True).count(),
             "unverified": Organization.objects.filter(is_verified=False, is_active=True).count(),
             "published": all_events.filter(status=Event.Status.PUBLISHED).count(),
+            "review": all_events.filter(status=Event.Status.REVIEW).count(),
+            "claims": OrganizationClaim.objects.filter(
+                status=OrganizationClaim.Status.PENDING
+            ).count(),
             "drafts": all_events.filter(status=Event.Status.DRAFT).count(),
             "picked": all_events.filter(is_featured=True).count(),
             "upcoming": all_events.filter(
@@ -316,9 +321,14 @@ def staff_event_action(request, slug, action):
         event.save(update_fields=["is_featured"])
         messages.info(request, f"{label} removed from the picks.")
     elif action == "publish":
-        event.status = Event.Status.PUBLISHED
-        event.save(update_fields=["status"])
+        event.approve(request.user)
+        mail.send_event_approved(event)
         messages.success(request, f"{label} is now live.")
+    elif action == "send_back":
+        note = (request.POST.get("note") or "").strip()
+        event.send_back(request.user, note)
+        mail.send_event_sent_back(event, note)
+        messages.info(request, f"{label} sent back to its organizer as a draft.")
     elif action == "unpublish":
         event.status = Event.Status.DRAFT
         event.save(update_fields=["status"])
@@ -384,7 +394,20 @@ def staff_society_action(request, slug, action):
     if action == "verify":
         organization.is_verified = True
         organization.save(update_fields=["is_verified"])
-        messages.success(request, f"{organization.name} is verified.")
+
+        # Verifying a society is a statement about the people running it, so
+        # it carries to them: their next event elsewhere skips the queue too.
+        # Without this the flag existed and meant nothing, which is worse than
+        # not having it.
+        promoted = User.objects.filter(
+            pk__in=organization.managers().values("pk"), is_verified_organizer=False
+        ).update(is_verified_organizer=True)
+
+        messages.success(
+            request,
+            f"{organization.name} is verified."
+            + (f" {promoted} organizer(s) can now publish without review." if promoted else ""),
+        )
     elif action == "unverify":
         organization.is_verified = False
         organization.save(update_fields=["is_verified"])
@@ -399,6 +422,72 @@ def staff_society_action(request, slug, action):
         messages.success(request, f"{organization.name} is visible again.")
 
     return redirect("core:staff_societies")
+
+
+@staff_required
+def staff_claims(request):
+    """People asking to be given a society that is already listed.
+
+    The other half of the supply strategy: societies get listed from public
+    information so the directory isn't empty, and this is where their real
+    committees are let in. Oldest first — a claim that ages out is a society
+    that gave up and made a duplicate page instead.
+    """
+    show = request.GET.get("show", "pending")
+
+    claims = OrganizationClaim.objects.select_related(
+        "organization", "organization__university", "user", "reviewed_by"
+    )
+    if show == "pending":
+        claims = claims.filter(status=OrganizationClaim.Status.PENDING)
+    elif show in {OrganizationClaim.Status.APPROVED, OrganizationClaim.Status.REJECTED}:
+        claims = claims.filter(status=show).order_by("-reviewed_at")
+
+    paginator = Paginator(claims, 25)
+    page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "core/staff_claims.html",
+        {
+            "page_obj": page,
+            "claims": page.object_list,
+            "total_count": paginator.count,
+            "pending_count": OrganizationClaim.objects.filter(
+                status=OrganizationClaim.Status.PENDING
+            ).count(),
+            "selected": {"show": show},
+        },
+    )
+
+
+@staff_required
+@require_POST
+def staff_claim_action(request, pk, action):
+    claim = get_object_or_404(
+        OrganizationClaim.objects.select_related("organization", "user"), pk=pk
+    )
+
+    if not claim.is_pending:
+        messages.info(request, "That claim has already been decided.")
+        return redirect("core:staff_claims")
+
+    if action == "approve":
+        claim.approve(request.user)
+        mail.send_claim_approved(claim)
+        messages.success(
+            request,
+            f"{claim.user.display_name} now owns {claim.organization.name}.",
+        )
+    elif action == "reject":
+        note = (request.POST.get("note") or "").strip()
+        claim.reject(request.user, note)
+        mail.send_claim_rejected(claim, note)
+        messages.info(request, "Claim rejected and the person told why.")
+    else:
+        messages.error(request, "Unknown action.")
+
+    return redirect("core:staff_claims")
 
 
 def handler404(request, exception=None):

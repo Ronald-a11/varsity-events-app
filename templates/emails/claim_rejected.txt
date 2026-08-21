@@ -1,0 +1,13 @@
+Hi {{ user.first_name|default:user.username }},
+
+About your claim on {{ organization.name }}: we have not been able to hand
+this one over.
+{% if note %}
+{{ note }}
+{% endif %}
+If we have got this wrong, reply to this email and tell us - including
+anything that would help us check. We would much rather a real committee had
+its page.
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.

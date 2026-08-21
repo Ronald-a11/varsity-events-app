@@ -1,0 +1,17 @@
+Hi {{ user.first_name|default:user.username }},
+
+{{ organization.name }} is yours.
+
+You are the owner. You can edit the page, add the rest of your committee, and
+publish events - and you do not need us for any of it.
+
+Put on your first event:
+{{ create_url }}
+
+Your first few events get a quick look from us before they reach students.
+Once {{ organization.name }} is verified they go straight up.
+
+{{ organization_url }}
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.

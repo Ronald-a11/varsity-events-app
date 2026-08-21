@@ -98,6 +98,10 @@ class EventQuerySet(models.QuerySet):
     def published(self):
         return self.filter(status=Event.Status.PUBLISHED)
 
+    def awaiting_review(self):
+        """The staff queue, oldest submission first — first in, first seen."""
+        return self.filter(status=Event.Status.REVIEW).order_by("submitted_at", "pk")
+
     def upcoming(self):
         return self.filter(ends_at__gte=timezone.now()).order_by("starts_at")
 
@@ -142,6 +146,10 @@ class EventQuerySet(models.QuerySet):
 class Event(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
+        # Submitted, waiting on a human. Sits between draft and published so
+        # that every existing query for PUBLISHED keeps students from seeing
+        # it — a new state must fail closed, never open.
+        REVIEW = "review", "Awaiting review"
         PUBLISHED = "published", "Published"
         CANCELLED = "cancelled", "Cancelled"
 
@@ -221,6 +229,24 @@ class Event(models.Model):
     )
     is_featured = models.BooleanField(default=False)
     views_count = models.PositiveIntegerField(default=0)
+
+    # Review bookkeeping. `submitted_at` orders the queue oldest-first, so
+    # nobody's event is stuck behind a newer one; the rest is accountability —
+    # who let this onto the feed, and what were they told when it came back.
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="events_reviewed",
+    )
+    review_note = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text="Shown to the organizer when an event is sent back.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -313,6 +339,65 @@ class Event(models.Model):
     @property
     def is_cancelled(self):
         return self.status == self.Status.CANCELLED
+
+    @property
+    def is_awaiting_review(self):
+        return self.status == self.Status.REVIEW
+
+    def review_is_required(self, user):
+        """Does this event need a human to look at it before students do?
+
+        Trust comes from either end: a society the platform has verified, or a
+        person it has verified. Both exist because both cases are real — an
+        established society whose committee turns over every year, and a
+        well-known organizer starting something new.
+
+        Deliberately not asked of an event that is *already* published: an
+        organizer fixing a typo on a live event must not silently pull it off
+        the feed.
+        """
+        if self.status == self.Status.PUBLISHED:
+            return False
+        if user is not None and user.publishes_without_review:
+            return False
+        return not self.organization.is_verified
+
+    def submit_for_publication(self, by_user):
+        """Act on a press of Publish, and return the status it landed in.
+
+        The one place that decides between going live and joining the queue, so
+        the create form, the edit form and anything added later cannot drift
+        apart on the question that matters most.
+        """
+        if not by_user.can_publish:
+            # No confirmed address, no audience. It keeps its draft.
+            self.status = self.Status.DRAFT
+        elif self.review_is_required(by_user):
+            self.status = self.Status.REVIEW
+            self.submitted_at = timezone.now()
+            # A resubmission clears the last verdict; the note it carried was
+            # about the version that has just been replaced.
+            self.reviewed_at = None
+            self.reviewed_by = None
+            self.review_note = ""
+        else:
+            self.status = self.Status.PUBLISHED
+        return self.status
+
+    def approve(self, by_user):
+        self.status = self.Status.PUBLISHED
+        self.reviewed_at = timezone.now()
+        self.reviewed_by = by_user
+        self.review_note = ""
+        self.save(update_fields=["status", "reviewed_at", "reviewed_by", "review_note"])
+
+    def send_back(self, by_user, note=""):
+        """Return it to the organizer as a draft, with a reason attached."""
+        self.status = self.Status.DRAFT
+        self.reviewed_at = timezone.now()
+        self.reviewed_by = by_user
+        self.review_note = note[:300]
+        self.save(update_fields=["status", "reviewed_at", "reviewed_by", "review_note"])
 
     @property
     def confirmed_registrations(self):
@@ -556,7 +641,12 @@ class Event(models.Model):
     def can_be_seen_by(self, user):
         if self.can_manage(user):
             return True
-        if self.status == self.Status.DRAFT:
+        if user.is_authenticated and user.is_platform_staff:
+            # Somebody has to be able to open it in order to review it.
+            return True
+        # Neither a draft nor something still in the queue is anybody else's
+        # business, however they came by the URL.
+        if self.status in {self.Status.DRAFT, self.Status.REVIEW}:
             return False
         if self.visibility == self.Visibility.PUBLIC:
             return True

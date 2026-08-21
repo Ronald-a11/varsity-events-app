@@ -1,0 +1,15 @@
+Hi {{ user.first_name|default:user.username }},
+
+We have got your claim on {{ organization.name }}.
+
+Somebody will read it properly - usually within a day or two. Handing over a
+society hands over its events, its attendee lists and its takings, so this one
+is not automatic.
+
+You said you are the {{ claim.role_title }}. If anything else would help us
+check that, just reply to this email.
+
+{{ organization_url }}
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.

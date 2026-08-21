@@ -1,0 +1,17 @@
+"{{ event.title }}" is live.
+
+We have had a look and it is on the feed - students across Zimbabwe can find
+it, save it and get a ticket.
+
+{{ event.title }}
+{{ event.starts_at|date:"l, j F" }} at {{ event.starts_at|date:"H:i" }}
+{{ event.location_display }}
+
+See it on the feed:
+{{ event_url }}
+
+Sign-ups, the door desk and your takings:
+{{ manage_url }}
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.

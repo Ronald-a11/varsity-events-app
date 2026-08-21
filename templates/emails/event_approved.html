@@ -1,0 +1,40 @@
+{% extends "emails/_base.html" %}
+
+{% block content %}
+  <h1 style="margin:0 0 6px; font-size:22px; line-height:1.25; font-weight:800; color:#1a1b33;">
+    “{{ event.title }}” is live
+  </h1>
+  <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#4a4e69;">
+    We've had a look and it's on the feed — students across Zimbabwe can find it,
+    save it and get a ticket. Share the link and you're away.
+  </p>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="border:1px solid #dddee6; border-radius:12px; background:#fafaf7;">
+    <tr>
+      <td style="padding:16px;">
+        <p style="margin:0 0 4px; font-size:15px; font-weight:700; color:#1a1b33;">{{ event.title }}</p>
+        <p style="margin:0; font-size:13px; line-height:1.6; color:#4a4e69;">
+          {{ event.starts_at|date:"l, j F" }} at {{ event.starts_at|date:"H:i" }}<br />
+          {{ event.location_display }}
+        </p>
+      </td>
+    </tr>
+  </table>
+
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;">
+    <tr>
+      <td style="border-radius:10px; background:#4f56a8;">
+        <a href="{{ event_url }}"
+           style="display:inline-block; padding:12px 24px; font-size:14px; font-weight:700; color:#ffffff; text-decoration:none;">
+          See it on the feed
+        </a>
+      </td>
+    </tr>
+  </table>
+
+  <p style="margin:20px 0 0; font-size:12px; line-height:1.6; color:#74788f;">
+    Sign-ups, the door desk and your takings all live on
+    <a href="{{ manage_url }}" style="color:#4a4e69;">the event's dashboard</a>.
+  </p>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "emails/_base.html" %}
+
+{% block content %}
+  <p style="margin:0 0 4px; font-size:13px; color:#74788f;">Hi {{ user.first_name|default:user.username }},</p>
+  <h1 style="margin:0 0 6px; font-size:22px; line-height:1.25; font-weight:800; color:#1a1b33;">
+    We've got your claim on {{ organization.name }}
+  </h1>
+  <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#4a4e69;">
+    Somebody will read it properly — usually within a day or two. Handing over a
+    society hands over its events, its attendee lists and its takings, so this
+    one isn't automatic.
+  </p>
+  <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#4a4e69;">
+    You said you're the <strong>{{ claim.role_title }}</strong>. If anything else
+    would help us check that, just reply to this email.
+  </p>
+  <p style="margin:0; font-size:12px; line-height:1.6; color:#74788f;">
+    <a href="{{ organization_url }}" style="color:#4a4e69;">{{ organization.name }}</a>
+  </p>
+{% endblock %}

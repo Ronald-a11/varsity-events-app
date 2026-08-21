@@ -1,0 +1,15 @@
+"{{ event.title }}" needs another look.
+
+It is back with you as a draft - nothing is lost and nobody has seen it.
+{% if note %}
+What needs changing:
+{{ note }}
+{% endif %}
+Edit the event and press Publish again:
+{{ edit_url }}
+
+Think we have got this wrong? Reply and tell us - we would rather be
+corrected than have a real event go unlisted.
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.

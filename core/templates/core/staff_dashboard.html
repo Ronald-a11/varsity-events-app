@@ -15,6 +15,7 @@
       </div>
       <div class="flex gap-2">
         <a href="{% url 'core:staff_societies' %}" class="btn-secondary">Societies{% if stats.unverified %} <span class="chip bg-amber-100 text-amber-800">{{ stats.unverified }}</span>{% endif %}</a>
+        <a href="{% url 'core:staff_claims' %}" class="btn-secondary">Claims{% if stats.claims %} <span class="chip bg-flame-100 text-flame-700">{{ stats.claims }}</span>{% endif %}</a>
         <a href="{% url 'admin:index' %}" class="btn-ghost">Django admin</a>
       </div>
     </div>
@@ -33,6 +34,10 @@
         <dt class="text-xs uppercase tracking-wide text-ink-subtle">Live events</dt>
         <dd class="mt-1 text-2xl font-extrabold text-ink">{{ stats.upcoming }}</dd>
       </div>
+      <a href="?status=review" class="stat-card block p-4 transition hover:border-brand-400">
+        <dt class="text-xs uppercase tracking-wide text-ink-subtle">In review</dt>
+        <dd class="mt-1 text-2xl font-extrabold {% if stats.review %}text-flame-600{% else %}text-ink{% endif %}">{{ stats.review }}</dd>
+      </a>
       <div class="stat-card p-4">
         <dt class="text-xs uppercase tracking-wide text-ink-subtle">Drafts</dt>
         <dd class="mt-1 text-2xl font-extrabold text-amber-600">{{ stats.drafts }}</dd>
@@ -121,8 +126,14 @@
                   <td class="px-4 py-3">
                     <span class="chip
                       {% if event.status == 'published' %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
+                      {% elif event.status == 'review' %}bg-flame-500/10 text-flame-600 dark:text-flame-400
                       {% elif event.status == 'draft' %}bg-amber-500/10 text-amber-600 dark:text-amber-400
                       {% else %}bg-rose-500/10 text-rose-600 dark:text-rose-400{% endif %}">{{ event.get_status_display }}</span>
+                    {% if event.status == 'review' %}
+                      <p class="mt-1 text-xs text-ink-subtle">waiting {{ event.submitted_at|naturaltime }}</p>
+                    {% elif event.review_note %}
+                      <p class="mt-1 max-w-[14rem] text-xs text-ink-subtle" title="{{ event.review_note }}">sent back: {{ event.review_note|truncatechars:40 }}</p>
+                    {% endif %}
                   </td>
                   <td class="px-4 py-3">
                     {% include "partials/_availability.html" with event=event %}
@@ -143,6 +154,17 @@
                       {% if event.status == 'published' %}
                         <form method="post" action="{% url 'core:staff_event_action' event.slug 'unpublish' %}">{% csrf_token %}
                           <button class="btn-ghost btn-sm">Unpublish</button></form>
+                      {% elif event.status == 'review' %}
+                        {# Queued: approving and sending back are the two answers, and #}
+                        {# sending back carries a reason, because "no" on its own is  #}
+                        {# not something an organizer can act on.                     #}
+                        <form method="post" action="{% url 'core:staff_event_action' event.slug 'publish' %}">{% csrf_token %}
+                          <button class="btn-primary btn-sm">Approve</button></form>
+                        <form method="post" action="{% url 'core:staff_event_action' event.slug 'send_back' %}"
+                              class="flex items-center gap-1">{% csrf_token %}
+                          <input type="text" name="note" maxlength="300" placeholder="Why?"
+                                 class="w-28 rounded-lg border border-hairline px-2 py-1 text-xs focus:border-brand-500 focus:outline-none" />
+                          <button class="btn-ghost btn-sm text-amber-600">Send back</button></form>
                       {% else %}
                         <form method="post" action="{% url 'core:staff_event_action' event.slug 'publish' %}">{% csrf_token %}
                           <button class="btn-secondary btn-sm">Publish</button></form>

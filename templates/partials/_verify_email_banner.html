@@ -1,0 +1,25 @@
+{% comment %}
+  One quiet line, not a modal. An unconfirmed address doesn't stop a student
+  browsing or getting a ticket — it stops them registering a society and
+  publishing — so the prompt is proportionate to that, and it disappears the
+  moment the link is clicked.
+
+  Staff are exempt (`email_is_verified` says so), because `createsuperuser`
+  never sent them anything to click.
+{% endcomment %}
+{% if user.is_authenticated and not user.email_is_verified %}
+  <div class="border-b border-amber-500/30 bg-amber-500/10">
+    <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm sm:px-6 lg:px-8">
+      <span aria-hidden="true">✉️</span>
+      <p class="text-amber-800 dark:text-amber-300">
+        Confirm <strong class="font-semibold">{{ user.email }}</strong> so tickets and receipts reach you.
+      </p>
+      <form method="post" action="{% url 'accounts:resend_verification' %}" class="ml-auto">
+        {% csrf_token %}
+        <button class="font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900 dark:text-amber-300">
+          Send the link again
+        </button>
+      </form>
+    </div>
+  </div>
+{% endif %}

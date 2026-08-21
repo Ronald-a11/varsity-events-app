@@ -30,7 +30,7 @@
     <p class="mt-4 text-sm leading-relaxed text-ink-muted">
       {% if fee_percent or fee_fixed %}
         We keep
-        {% if fee_percent %}{{ fee_percent }}%{% endif %}{% if fee_percent and fee_fixed %} plus {% endif %}{% if fee_fixed %}{{ fee_fixed }} per ticket{% endif %}
+        {% if fee_percent %}{{ fee_percent|floatformat }}%{% endif %}{% if fee_percent and fee_fixed %} plus {% endif %}{% if fee_fixed %}{{ fee_fixed|floatformat:2 }} per ticket{% endif %}
         of what we collect. The rate is worked out and frozen the moment each payment
         lands, so changing it later never restates what you were already owed.
       {% else %}

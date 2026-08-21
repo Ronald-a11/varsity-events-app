@@ -85,8 +85,14 @@ class LedgerTestCase(TestCase):
 
 
 class PlatformFeeTests(LedgerTestCase):
+    @override_settings(PLATFORM_FEE_PERCENT=0, PLATFORM_FEE_FIXED=0)
     def test_with_no_fee_configured_the_society_gets_everything(self):
-        """The default, and what every deployment did before the ledger existed."""
+        """The default, and what every deployment did before the ledger existed.
+
+        Pinned rather than inherited: this asserts what a *zero* rate does, so
+        it must not quietly become an assertion about whatever rate the machine
+        running it happens to charge.
+        """
         payment = self.sell("10.00")
 
         self.assertEqual(payment.platform_fee, Decimal("0.00"))

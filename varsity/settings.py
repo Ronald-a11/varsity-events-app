@@ -629,6 +629,14 @@ if TESTING:
     # back on with @override_settings(RATELIMIT_ENABLE=True).
     RATELIMIT_ENABLE = False
 
+    # No fee, whatever the developer's .env says. The rate is a live business
+    # decision that changes, and a suite that reads it from the environment
+    # asserts something different on every machine — this one already failed on
+    # the box where the real rate was first set. Tests that care about a fee
+    # state it with @override_settings(PLATFORM_FEE_PERCENT=...).
+    PLATFORM_FEE_PERCENT = 0
+    PLATFORM_FEE_FIXED = 0
+
     # Keep the noise down; a failing test shows its own output.
     LOGGING["root"]["level"] = "CRITICAL"
     for _logger in LOGGING["loggers"].values():

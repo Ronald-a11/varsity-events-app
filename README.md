@@ -443,7 +443,9 @@ PLATFORM_FEE_FIXED=0
 
 **Both default to zero**, deliberately: every deployment that existed before the
 ledger took no fee, and switching one on by upgrading would be taking money
-nobody agreed to.
+nobody agreed to. This deployment runs at **10%** — set it as a Railway variable,
+not in code, and set it *before the first sale*, since a society's first
+statement is written under whatever the rate said that day.
 
 The fee is worked out and **frozen onto each payment the moment it settles**, and
 never recomputed on read. The rate is a business decision that will change, and a
@@ -928,6 +930,8 @@ would vanish the next time you push. The Postgres service sets `DATABASE_URL`, w
 | `PESEPAY_CODE_INNBUCKS` | `PZW212` |
 | `PESEPAY_CODE_ONEMONEY` | leave unset unless your account offers it |
 | `ECOCASH_MERCHANT_NUMBER` | the wallet direct transfers go to |
+| `PLATFORM_FEE_PERCENT` | `10` — what we keep per ticket. **Set it before the first sale**: it is frozen onto each payment as it settles, so a society's first statement is written under whatever this said that day |
+| `EMAIL_HOST` etc. | **not optional.** Confirming an address gates registering and claiming a society, so with no SMTP nobody but you can create one |
 | `DJANGO_MEDIA_ROOT` | `/data/media` if you mount a volume (see below) |
 
 Generate the secret key with:

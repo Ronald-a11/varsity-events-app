@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import pwa, views
+from . import maintenance, pwa, views
 
 app_name = "core"
 
@@ -13,6 +13,9 @@ urlpatterns = [
     path("sw.js", pwa.service_worker, name="service_worker"),
     path("manifest.webmanifest", pwa.manifest, name="manifest"),
     path("offline/", pwa.offline, name="offline"),
+    # Lets an outside scheduler stand in for the task cluster. Answers 404
+    # unless TASK_TOKEN is set and presented. See core/maintenance.py.
+    path("tasks/run/", maintenance.run_scheduled_jobs, name="run_scheduled_jobs"),
     path("discover/", views.discover, name="discover"),
     path("about/", views.about, name="about"),
     path("search.json", views.quick_search, name="quick_search"),

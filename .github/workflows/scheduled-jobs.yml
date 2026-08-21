@@ -1,0 +1,63 @@
+name: Scheduled jobs
+
+# Stands in for the task cluster.
+#
+# The cluster would normally do this, but it needs a service of its own and
+# Railway's free plan has no room for a fourth. This calls a small endpoint on
+# the running site instead, so the production database URL never leaves Railway
+# — see core/maintenance.py.
+#
+# What it does, every ten minutes:
+#   - releases seats held by checkouts nobody finished, and offers them to the
+#     waitlist. Without this a sold-out event keeps a lapsed hold forever.
+#   - sends "doors open in an hour" pushes to people holding a ticket.
+#
+# Both jobs are idempotent, so a missed run or a double run costs nothing.
+# GitHub's scheduler is best-effort and skips runs when it is busy, which is
+# fine here: the next tick picks up whatever the last one missed.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  # So it can be run by hand when something looks stuck.
+  workflow_dispatch:
+
+# Never let two runs overlap. They would be harmless, but a pile-up during a
+# GitHub incident is noise nobody needs.
+concurrency:
+  group: scheduled-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release abandoned holds and send door reminders
+        env:
+          SITE: ${{ secrets.SITE_URL }}
+          TOKEN: ${{ secrets.TASK_TOKEN }}
+        run: |
+          if [ -z "$SITE" ] || [ -z "$TOKEN" ]; then
+            echo "::error::SITE_URL and TASK_TOKEN must both be set as repository secrets."
+            exit 1
+          fi
+
+          # -sS so a failure is reported rather than silent; --max-time so a
+          # hung site can't hold a runner for six hours.
+          body=$(curl -sS --max-time 60 -X POST \
+            -H "X-Task-Token: $TOKEN" \
+            -w '\n%{http_code}' \
+            "$SITE/tasks/run/")
+
+          code=$(printf '%s' "$body" | tail -n1)
+          payload=$(printf '%s' "$body" | sed '$d')
+
+          echo "HTTP $code"
+          echo "$payload"
+
+          if [ "$code" != "200" ]; then
+            # 404 is what a wrong or missing token looks like, on purpose — the
+            # endpoint gives a prober no way to tell it exists.
+            echo "::error::Scheduled jobs returned $code. Check TASK_TOKEN matches the deployment."
+            exit 1
+          fi

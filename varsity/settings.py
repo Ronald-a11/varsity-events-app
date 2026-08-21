@@ -531,6 +531,17 @@ if SENTRY_DSN:
     )
 
 
+# Letting an outside scheduler run the recurring jobs
+#
+# The task cluster is the normal way; this is for deployments with no room for
+# a second service. Generate a token and give it to whatever does the calling:
+#
+#   python -c "import secrets; print(secrets.token_urlsafe(32))"
+#
+# Blank, and the endpoint 404s like any other unknown URL.
+TASK_TOKEN = os.getenv("TASK_TOKEN", "").strip()
+
+
 # Reading an event off its poster
 #
 # Organizers and platform staff upload the artwork the society already made,

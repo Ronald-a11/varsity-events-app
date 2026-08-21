@@ -50,10 +50,18 @@
        Show / hide password
     ---------------------------------------------------------------- */
     document.querySelectorAll('input[type="password"]').forEach((input) => {
-      const wrap = input.parentElement;
-      if (!wrap || wrap.querySelector("[data-toggle-password]")) return;
+      if (input.closest("[data-password-wrap]")) return;
 
-      wrap.classList.add("relative");
+      // The field partial wraps the label, the input and the help text in one
+      // div. Positioning against that centres the button on the whole block,
+      // which puts it up by the input's top edge rather than in the middle of
+      // it. Give the input a wrapper of its own to sit against.
+      const wrap = document.createElement("div");
+      wrap.setAttribute("data-password-wrap", "");
+      wrap.className = "relative";
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+
       input.classList.add("pr-11");
 
       const btn = document.createElement("button");

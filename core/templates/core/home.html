@@ -1,47 +1,68 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize static %}
 
 {% block title %}{{ SITE_NAME }} — {{ SITE_TAGLINE }}{% endblock %}
 
 {% block content %}
-  <!-- Hero -->
+  {% comment %}
+    Full-bleed photograph, centred type, one call to action.
+
+    The photo is licensed stock and says so in static/img/CREDITS.md. It is
+    NOT a Zimbabwean campus, which is a compromise worth being uncomfortable
+    about: replace it with a real photograph from a real event here the moment
+    there is one.
+
+    The section keeps its brand-950 background underneath, so the hero is
+    already the right colour before the image decodes and stays readable if it
+    never arrives at all.
+  {% endcomment %}
   <section class="relative overflow-hidden bg-brand-950">
-    <div class="absolute inset-0 bg-mesh-brand"></div>
-    <div class="absolute inset-0 bg-grid-faint bg-grid opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"></div>
-    <div class="absolute -right-32 -top-32 h-[28rem] w-[28rem] animate-float-slow rounded-full bg-brand-500/25 blur-3xl"></div>
-    <div class="absolute -bottom-40 -left-24 h-[26rem] w-[26rem] rounded-full bg-azure-500/25 blur-3xl"></div>
+    <img src="{% static 'img/hero-crowd.jpg' %}" alt=""
+         class="absolute inset-0 h-full w-full object-cover object-center"
+         fetchpriority="high" decoding="async" />
 
-    <div class="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
-      <div class="max-w-2xl">
-        <span class="chip animate-fade-up bg-white/10 text-white ring-1 ring-inset ring-white/20 backdrop-blur">
-          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span>
-          🇿🇼 {{ stats.universities }} universities · {{ stats.societies }} societies · {{ stats.events }} events
-        </span>
+    {% comment %}
+      Two overlays doing different jobs. The flat wash buys contrast for white
+      text anywhere on the image; the vertical gradient darkens only the top,
+      where the transparent nav sits, and the foot, where the hero has to hand
+      off to the page colour without ending on a hard line.
 
-        <h1 class="mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tightest text-white text-balance sm:text-6xl lg:text-7xl">
-          Every university event<br />in Zimbabwe,
-          <span class="text-gradient">one place.</span>
-        </h1>
+      Tuned so the crowd is still legible. Stacking enough darkness to make
+      text trivially safe leaves a photograph nobody can see, which is the
+      same as having no photograph and a slower page.
+    {% endcomment %}
+    <div class="absolute inset-0 bg-brand-950/55"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-brand-950/75 via-brand-950/20 to-brand-950/85"></div>
 
-        <p class="mt-6 max-w-xl text-lg leading-relaxed text-brand-100/90">
-          Campus events live in WhatsApp groups, faded notice-board posters and statuses that
-          expire in 24 hours. {{ SITE_NAME }} puts them all on one page — searchable, ticketed,
-          and honest about whether tickets are still going.
-        </p>
+    <div class="relative mx-auto max-w-4xl px-4 py-24 text-center sm:px-6 lg:py-36">
+      <span class="chip animate-fade-up bg-white/10 text-white ring-1 ring-inset ring-white/20 backdrop-blur">
+        <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span>
+        🇿🇼 {{ stats.universities }} universities · {{ stats.societies }} societies · {{ stats.events }} events
+      </span>
 
-        <div class="mt-9 flex flex-col gap-3 sm:flex-row">
-          <a href="{% url 'accounts:register' %}" class="btn bg-white px-7 py-3.5 text-base text-brand-800 shadow-2xl hover:bg-brand-50">
-            Create a free account
-          </a>
-          <a href="{% url 'events:list' %}" class="btn border border-white/25 px-7 py-3.5 text-base text-white backdrop-blur transition hover:bg-white/10">
-            Browse events first
-          </a>
-        </div>
+      <h1 class="mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tightest text-white text-balance sm:text-6xl lg:text-7xl">
+        Every university event in Zimbabwe,
+        <span class="text-gradient">one place.</span>
+      </h1>
 
-        <p class="mt-4 text-sm text-brand-100/70">
-          Free for every student. Sign in and your feed fills with what's on this week.
-        </p>
+      <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-brand-100/90 text-balance">
+        Campus events live in WhatsApp groups, faded notice-board posters and statuses that
+        expire in 24 hours. {{ SITE_NAME }} puts them all on one page — searchable, ticketed,
+        and honest about whether tickets are still going.
+      </p>
+
+      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="{% url 'accounts:register' %}" class="btn bg-white px-8 py-4 text-base text-brand-800 shadow-2xl hover:bg-brand-50">
+          Create a free account
+        </a>
+        <a href="{% url 'events:list' %}" class="btn border border-white/25 px-8 py-4 text-base text-white backdrop-blur transition hover:bg-white/10">
+          Browse events first
+        </a>
       </div>
+
+      <p class="mt-5 text-sm text-brand-100/70">
+        Free for every student. Sign in and your feed fills with what's on this week.
+      </p>
     </div>
 
     <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-surface-2 to-transparent"></div>

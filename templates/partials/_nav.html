@@ -93,6 +93,10 @@ Staff get one extra top-level link, because moderation is a different job.
                 <span class="chip bg-amber-500/15 text-amber-600 dark:text-amber-400">{{ pending_verifications }}</span>
               {% endif %}
             </a>
+            <a href="{% url 'payments:earnings' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Earnings &amp; payouts</a>
+            {% if user.is_platform_staff %}
+              <a href="{% url 'payments:payout_desk' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Payout desk</a>
+            {% endif %}
 
             <p class="border-t border-hairline px-4 pb-1.5 pt-2.5 text-2xs font-semibold uppercase tracking-widest text-ink-subtle">Societies</p>
             <a href="{% url 'organizations:create' %}" class="block px-4 py-2 text-sm text-ink-muted transition hover:bg-surface-3 hover:text-ink">Register a society</a>
@@ -198,6 +202,7 @@ Staff get one extra top-level link, because moderation is a different job.
           Verify EcoCash
           {% if pending_verifications %}<span class="chip bg-amber-500/15 text-amber-600 dark:text-amber-400">{{ pending_verifications }}</span>{% endif %}
         </a>
+        <a href="{% url 'payments:earnings' %}" class="block rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-3">Earnings &amp; payouts</a>
       {% endif %}
       {% if user.is_platform_staff %}
         <a href="{% url 'core:staff_dashboard' %}" class="mt-2 block border-t border-hairline rounded-lg px-3 py-2 pt-3 text-sm font-medium text-brand-500 hover:bg-brand-500/10">Admin</a>

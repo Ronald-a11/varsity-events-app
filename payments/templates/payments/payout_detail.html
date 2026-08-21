@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}{{ payout.reference }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    {% include "partials/_page_header.html" with title=payout.reference subtitle=payout.organization.name %}
+
+    <!-- The arithmetic, in the order somebody would check it -->
+    <div class="card mt-8 p-6">
+      <dl class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <dt class="text-ink-muted">{{ payout.ticket_count }} ticket{{ payout.ticket_count|pluralize }} collected</dt>
+          <dd class="font-medium text-ink">{{ payout.currency }} {{ payout.gross_amount|floatformat:2 }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-ink-muted">Platform fee</dt>
+          <dd class="font-medium text-ink-muted">− {{ payout.currency }} {{ payout.fee_amount|floatformat:2 }}</dd>
+        </div>
+        <div class="flex justify-between border-t border-hairline pt-3">
+          <dt class="font-bold text-ink">
+            {% if payout.is_paid %}Sent to you{% else %}To be sent{% endif %}
+          </dt>
+          <dd class="text-lg font-extrabold text-emerald-600">{{ payout.amount_display }}</dd>
+        </div>
+      </dl>
+
+      <div class="mt-5 grid gap-3 border-t border-hairline pt-5 text-xs text-ink-subtle sm:grid-cols-2">
+        <p>
+          <span class="chip {% if payout.is_paid %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400{% else %}bg-amber-500/10 text-amber-600 dark:text-amber-400{% endif %}">
+            {{ payout.get_status_display }}
+          </span>
+          {% if payout.paid_at %} on {{ payout.paid_at|date:"j M Y, H:i" }}{% endif %}
+        </p>
+        <p class="sm:text-right">
+          {{ payout.get_method_display }}{% if payout.destination %} · {{ payout.destination }}{% endif %}
+          {% if payout.external_reference %}
+            <br />Confirmation code: <span class="font-mono text-ink">{{ payout.external_reference }}</span>
+          {% endif %}
+        </p>
+      </div>
+      {% if payout.note %}
+        <p class="mt-3 border-t border-hairline pt-3 text-sm text-ink-muted">{{ payout.note }}</p>
+      {% endif %}
+    </div>
+
+    <!-- Every ticket behind the number -->
+    <section class="mt-10">
+      <h2 class="section-title">What's in it</h2>
+      <div class="mt-4 overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card">
+        <table class="min-w-full divide-y divide-hairline text-sm">
+          <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-ink-subtle">
+            <tr>
+              <th class="px-4 py-3 font-semibold">Event</th>
+              <th class="hidden px-4 py-3 font-semibold sm:table-cell">Paid</th>
+              <th class="px-4 py-3 font-semibold">Collected</th>
+              <th class="px-4 py-3 font-semibold">Fee</th>
+              <th class="px-4 py-3 text-right font-semibold">To you</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-hairline">
+            {% for payment in payments %}
+              <tr class="hover:bg-surface-2">
+                <td class="px-4 py-3">
+                  <a href="{{ payment.registration.event.get_absolute_url }}"
+                     class="font-medium text-ink hover:text-brand-600">{{ payment.registration.event.title }}</a>
+                  <p class="text-xs text-ink-subtle">{{ payment.reference }} · {{ payment.get_method_display }}</p>
+                </td>
+                <td class="hidden whitespace-nowrap px-4 py-3 text-ink-muted sm:table-cell">
+                  {{ payment.paid_at|date:"j M Y" }}
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-ink-muted">{{ payment.amount|floatformat:2 }}</td>
+                <td class="whitespace-nowrap px-4 py-3 text-ink-subtle">{{ payment.platform_fee|default:"0.00"|floatformat:2 }}</td>
+                <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-ink">{{ payment.net_amount|floatformat:2 }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="mt-6 text-xs text-ink-subtle">
+      If any line here doesn't match your own records, reply to the email this came
+      with and we'll go through it. Nothing on this page changes once a payout is sent.
+    </p>
+  </div>
+{% endblock %}

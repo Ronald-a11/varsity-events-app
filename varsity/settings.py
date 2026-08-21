@@ -408,6 +408,14 @@ PESEPAY_METHOD_CODES = {
 # trade-offs against a Paynow merchant account.
 # No default: a real wallet number doesn't belong in a public repo, and a
 # placeholder would quietly send students' money to a stranger.
+# What the platform keeps from each ticket it sells on a society's behalf.
+# Zero by default, deliberately: every deployment that existed before the payout
+# ledger took no fee, and switching one on by upgrading would be taking money
+# nobody agreed to. Stamped onto each payment at settlement, so changing it
+# never restates what a society was already owed.
+PLATFORM_FEE_PERCENT = float(os.getenv("PLATFORM_FEE_PERCENT", "0") or 0)
+PLATFORM_FEE_FIXED = float(os.getenv("PLATFORM_FEE_FIXED", "0") or 0)
+
 ECOCASH_MERCHANT_NUMBER = os.getenv("ECOCASH_MERCHANT_NUMBER", "")
 ECOCASH_MERCHANT_NAME = os.getenv("ECOCASH_MERCHANT_NAME", "Varsity Events")
 ECOCASH_DIRECT_ENABLED = env_bool("ECOCASH_DIRECT_ENABLED", True)

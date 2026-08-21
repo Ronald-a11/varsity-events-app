@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Earnings · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    {% include "partials/_page_header.html" with title="Earnings" %}
+
+    <!-- Totals -->
+    <dl class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="stat-card p-4">
+        <dt class="text-xs uppercase tracking-wide text-ink-subtle">Waiting for you</dt>
+        <dd class="mt-1 text-2xl font-extrabold text-emerald-600">{{ totals.outstanding|floatformat:2 }}</dd>
+      </div>
+      <div class="stat-card p-4">
+        <dt class="text-xs uppercase tracking-wide text-ink-subtle">Already sent</dt>
+        <dd class="mt-1 text-2xl font-extrabold text-ink">{{ totals.paid_out|floatformat:2 }}</dd>
+      </div>
+      <div class="stat-card p-4">
+        <dt class="text-xs uppercase tracking-wide text-ink-subtle">Tickets unpaid out</dt>
+        <dd class="mt-1 text-2xl font-extrabold text-ink">{{ totals.tickets|intcomma }}</dd>
+      </div>
+      <div class="stat-card p-4">
+        <dt class="text-xs uppercase tracking-wide text-ink-subtle">Our fee so far</dt>
+        <dd class="mt-1 text-2xl font-extrabold text-ink-muted">{{ totals.fees|floatformat:2 }}</dd>
+      </div>
+    </dl>
+
+    <p class="mt-4 text-sm leading-relaxed text-ink-muted">
+      {% if fee_percent or fee_fixed %}
+        We keep
+        {% if fee_percent %}{{ fee_percent }}%{% endif %}{% if fee_percent and fee_fixed %} plus {% endif %}{% if fee_fixed %}{{ fee_fixed }} per ticket{% endif %}
+        of what we collect. The rate is worked out and frozen the moment each payment
+        lands, so changing it later never restates what you were already owed.
+      {% else %}
+        We don't take a fee — every cent a student pays for your tickets comes to you.
+      {% endif %}
+    </p>
+
+    <!-- Per society -->
+    <section class="mt-10">
+      <h2 class="section-title">By society</h2>
+      <div class="mt-4 space-y-3">
+        {% for row in societies %}
+          <div class="card flex flex-wrap items-center gap-4 p-5">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-semibold text-ink">{{ row.organization.name }}</h3>
+              <p class="mt-0.5 text-xs text-ink-subtle">
+                {{ row.tickets }} ticket{{ row.tickets|pluralize }} not yet paid out
+                {% if row.fees %} · {{ row.fees|floatformat:2 }} in fees{% endif %}
+                {% if row.prepared %} · {{ row.prepared|floatformat:2 }} prepared and on its way{% endif %}
+              </p>
+            </div>
+            <div class="text-right">
+              <p class="text-xl font-extrabold {% if row.outstanding %}text-emerald-600{% else %}text-ink-subtle{% endif %}">
+                {{ row.outstanding|floatformat:2 }}
+              </p>
+              <p class="text-xs text-ink-subtle">owed to you</p>
+            </div>
+          </div>
+        {% empty %}
+          <div class="card px-6 py-12 text-center">
+            <p class="text-3xl">💸</p>
+            <h3 class="mt-3 font-semibold text-ink">Nothing yet</h3>
+            <p class="mt-1 text-sm text-ink-subtle">
+              Sell a ticket to a paid event and it shows up here.
+            </p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- Payouts -->
+    {% if payouts %}
+      <section class="mt-10">
+        <h2 class="section-title">Payouts</h2>
+        <div class="mt-4 overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card">
+          <table class="min-w-full divide-y divide-hairline text-sm">
+            <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-ink-subtle">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Reference</th>
+                <th class="hidden px-4 py-3 font-semibold sm:table-cell">Society</th>
+                <th class="px-4 py-3 font-semibold">Amount</th>
+                <th class="px-4 py-3 font-semibold">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-hairline">
+              {% for payout in payouts %}
+                <tr class="hover:bg-surface-2">
+                  <td class="px-4 py-3">
+                    <a href="{% url 'payments:payout_detail' payout.reference %}"
+                       class="font-mono font-semibold text-ink hover:text-brand-600">{{ payout.reference }}</a>
+                    <p class="text-xs text-ink-subtle">
+                      {% if payout.paid_at %}sent {{ payout.paid_at|naturaltime }}{% else %}prepared {{ payout.created_at|naturaltime }}{% endif %}
+                    </p>
+                  </td>
+                  <td class="hidden px-4 py-3 text-ink-muted sm:table-cell">{{ payout.organization.name }}</td>
+                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-ink">{{ payout.amount_display }}</td>
+                  <td class="px-4 py-3">
+                    <span class="chip
+                      {% if payout.is_paid %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
+                      {% else %}bg-amber-500/10 text-amber-600 dark:text-amber-400{% endif %}">{{ payout.get_status_display }}</span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+
+    <p class="mt-8 text-xs leading-relaxed text-ink-subtle">
+      Students pay us rather than you directly, because that is the only way to hold a
+      seat against money that hasn't arrived yet. Everything collected on your behalf
+      is listed here, and every payout can be opened down to the individual tickets.
+    </p>
+  </div>
+{% endblock %}

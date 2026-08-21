@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Payment
+from .models import Payment, Payout
 
 
 @admin.register(Payment)
@@ -47,3 +47,15 @@ class PaymentAdmin(admin.ModelAdmin):
         for payment in queryset:
             payment.mark_refunded()
         self.message_user(request, f"{queryset.count()} payment(s) marked refunded.")
+
+
+@admin.register(Payout)
+class PayoutAdmin(admin.ModelAdmin):
+    """The desk at /pay/payouts/ is the working view; this is for the awkward cases."""
+
+    list_display = (
+        "reference", "organization", "amount", "status", "created_at", "paid_at",
+    )
+    list_filter = ("status", "method", "organization__university")
+    search_fields = ("reference", "external_reference", "organization__name")
+    readonly_fields = ("reference", "created_at", "paid_at", "gross_amount", "fee_amount")

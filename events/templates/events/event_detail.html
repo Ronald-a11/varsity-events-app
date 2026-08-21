@@ -397,5 +397,14 @@
         </div>
       </section>
     {% endif %}
+
+    <!-- Report -->
+    {% if user.is_authenticated and not can_manage %}
+      <p class="mt-14 border-t border-hairline pt-6 text-center text-xs text-ink-subtle">
+        Something wrong with this event?
+        <a href="{% url 'core:report' 'event' event.slug %}" class="font-medium underline underline-offset-2 hover:text-ink-muted">Report it</a>
+        and a person will look.
+      </p>
+    {% endif %}
   </div>
 {% endblock %}

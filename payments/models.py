@@ -1,5 +1,5 @@
 import secrets
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.db import models
@@ -16,6 +16,22 @@ def generate_payment_reference():
     """Merchant reference sent to Paynow, e.g. VE-PAY-7K2M9QX4."""
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     return "VE-PAY-" + "".join(secrets.choice(alphabet) for _ in range(8))
+
+
+def generate_payout_reference():
+    """Our reference for one settlement to a society, e.g. VE-OUT-3F8KQ2W9."""
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "VE-OUT-" + "".join(secrets.choice(alphabet) for _ in range(8))
+
+
+def quantize_money(value) -> Decimal:
+    """Two decimal places, rounded half-up, because this is money.
+
+    Decimal's default is ROUND_HALF_EVEN, which is right for statistics and
+    wrong for a fee: it would round 0.125 down half the time, and a society
+    checking our arithmetic by hand would find us short and be right.
+    """
+    return Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 class Payment(models.Model):
@@ -116,6 +132,23 @@ class Payment(models.Model):
     rejection_reason = models.CharField(max_length=200, blank=True)
     is_simulated = models.BooleanField(
         default=False, help_text="Created without live Paynow credentials."
+    )
+
+    # What the platform keeps, stamped once at settlement and never recomputed.
+    # Null means "not assessed yet", which is a different thing from a fee of
+    # zero — and the difference matters, because changing the rate next term
+    # must not silently rewrite what a society was owed last term.
+    platform_fee = models.DecimalField(
+        max_digits=9, decimal_places=2, null=True, blank=True,
+        help_text="Assessed once, when the money settles. Historic rows keep the old rate.",
+    )
+    payout = models.ForeignKey(
+        "payments.Payout",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        help_text="The settlement to the society that covered this sale.",
     )
 
     expires_at = models.DateTimeField(null=True, blank=True)
@@ -284,6 +317,37 @@ class Payment(models.Model):
         self.save()
         return changed
 
+    @property
+    def net_amount(self) -> Decimal:
+        """What the society is owed for this sale.
+
+        Falls back to the gross while the fee is unassessed, which is what every
+        row taken before the ledger existed looks like — those were collected
+        under an arrangement with no fee, and inventing one retrospectively
+        would be taking money nobody agreed to.
+        """
+        return self.amount - (self.platform_fee or Decimal("0"))
+
+    def stamp_platform_fee(self, *, force=False) -> Decimal:
+        """Assess the fee once, at settlement, and freeze it.
+
+        Not a property and not recomputed on read: the rate is a business
+        decision that will change, and a society's statement from last term has
+        to still say what it said last term.
+        """
+        if self.platform_fee is not None and not force:
+            return self.platform_fee
+
+        percent = Decimal(str(getattr(settings, "PLATFORM_FEE_PERCENT", 0) or 0))
+        fixed = Decimal(str(getattr(settings, "PLATFORM_FEE_FIXED", 0) or 0))
+
+        fee = quantize_money(self.amount * percent / Decimal("100") + fixed)
+        # Never take more than the ticket was worth, however the rate is set.
+        fee = min(max(fee, Decimal("0.00")), self.amount)
+
+        self.platform_fee = fee
+        return fee
+
     def settle(self):
         """Turn a paid transaction into a confirmed ticket."""
         from activity.models import Activity, record
@@ -291,6 +355,13 @@ class Payment(models.Model):
 
         if not self.is_settled:
             return False
+
+        # Before the early return below: a payment can reach here with its
+        # ticket already confirmed (a callback and a poll racing), and the fee
+        # still has to be stamped exactly once.
+        if self.platform_fee is None:
+            self.stamp_platform_fee()
+            self.save(update_fields=["platform_fee"])
 
         registration = self.registration
         if registration.status == Registration.Status.CONFIRMED:
@@ -433,3 +504,235 @@ def total_collected(events):
         registration__event__in=events, status__in=Payment.SETTLED_STATUSES
     ).aggregate(total=models.Sum("amount"))
     return result["total"] or Decimal("0")
+
+
+class Payout(models.Model):
+    """One settlement from the platform to a society.
+
+    Every ticket is paid into *our* Pesepay account and *our* EcoCash wallet,
+    because that is the only way to hold a seat against money that has not
+    landed yet. The societies still ran the events, so the platform owes them
+    the takings less its fee — and until that debt is written down somewhere,
+    it exists only as an argument waiting to happen.
+
+    A payout claims the sales it covers by stamping `Payment.payout`, so the
+    same money cannot go out twice and any figure on a statement can be taken
+    apart back to the individual tickets.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Prepared, not yet sent"
+        PAID = "paid", "Sent"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class Method(models.TextChoices):
+        ECOCASH = "ecocash", "EcoCash"
+        BANK = "bank", "Bank transfer"
+        CASH = "cash", "Cash"
+        OTHER = "other", "Other"
+
+    organization = models.ForeignKey(
+        "organizations.Organization", on_delete=models.PROTECT, related_name="payouts"
+    )
+    reference = models.CharField(
+        max_length=32, unique=True, default=generate_payout_reference, editable=False
+    )
+
+    # Denormalised on purpose. These are what the society was told they were
+    # getting; recomputing them from the payments later would quietly restate
+    # history the first time a payment is refunded or a fee corrected.
+    gross_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    fee_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    amount = models.DecimalField(
+        max_digits=10, decimal_places=2, help_text="What actually leaves our account."
+    )
+    currency = models.CharField(max_length=3, default="USD")
+
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    method = models.CharField(max_length=20, choices=Method.choices, default=Method.ECOCASH)
+    destination = models.CharField(
+        max_length=120, blank=True, help_text="Wallet number or account the money went to."
+    )
+    external_reference = models.CharField(
+        max_length=80,
+        blank=True,
+        help_text="The EcoCash or bank confirmation code, so this can be reconciled.",
+    )
+    note = models.CharField(max_length=300, blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payouts_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["status"]), models.Index(fields=["reference"])]
+
+    def __str__(self):
+        return f"{self.reference} · {self.organization} · {self.currency} {self.amount}"
+
+    @property
+    def is_paid(self):
+        return self.status == self.Status.PAID
+
+    @property
+    def amount_display(self):
+        return f"{self.currency} {self.amount:.2f}"
+
+    @property
+    def ticket_count(self):
+        return self.payments.count()
+
+    def mark_paid(self, *, by_user=None, external_reference="", destination=""):
+        """Record that the money actually left. Idempotent."""
+        if self.is_paid:
+            return False
+
+        self.status = self.Status.PAID
+        self.paid_at = timezone.now()
+        if external_reference:
+            self.external_reference = external_reference[:80]
+        if destination:
+            self.destination = destination[:120]
+        self.save(update_fields=["status", "paid_at", "external_reference", "destination"])
+        return True
+
+    def cancel(self):
+        """Release the sales back into the unpaid pool.
+
+        A prepared payout that never went out must not hold money hostage — the
+        next one has to be able to pick those tickets up.
+        """
+        if self.is_paid:
+            raise ValueError("A payout that has already been sent cannot be cancelled.")
+
+        self.payments.update(payout=None)
+        self.status = self.Status.CANCELLED
+        self.save(update_fields=["status"])
+
+
+def unpaid_payments():
+    """Every settled sale, anywhere, that no payout has claimed yet."""
+    return Payment.objects.filter(status__in=Payment.SETTLED_STATUSES, payout__isnull=True)
+
+
+def unpaid_payments_for(organization):
+    """The same, for one society."""
+    return unpaid_payments().filter(registration__event__organization=organization)
+
+
+def ledger_for(organization) -> dict:
+    """What we are holding for one society, and what we have already sent."""
+    outstanding = unpaid_payments_for(organization).aggregate(
+        gross=models.Sum("amount"),
+        fees=models.Sum("platform_fee"),
+        tickets=models.Count("pk"),
+    )
+    gross = outstanding["gross"] or Decimal("0")
+    fees = outstanding["fees"] or Decimal("0")
+
+    totals = Payout.objects.filter(organization=organization).aggregate(
+        sent=models.Sum("amount", filter=models.Q(status=Payout.Status.PAID)),
+        prepared=models.Sum("amount", filter=models.Q(status=Payout.Status.PENDING)),
+    )
+    sent = totals["sent"] or Decimal("0")
+    prepared = totals["prepared"] or Decimal("0")
+
+    return {
+        "gross": gross,
+        "fees": fees,
+        "outstanding": gross - fees,
+        "tickets": outstanding["tickets"] or 0,
+        "prepared": prepared,
+        "paid_out": sent,
+        "lifetime": sent + prepared + (gross - fees),
+    }
+
+
+def prepare_payout(
+    organization, *, by_user=None, method=None, destination="", note=""
+):
+    """Gather every unclaimed sale for a society into one payout.
+
+    Returns None when nothing is owed, rather than creating a payout for zero —
+    an empty settlement is noise on a statement and claims no payments while
+    still looking like something happened.
+
+    Claiming the payments and writing the payout happen in one transaction, and
+    the rows are locked while it runs: two people pressing the button at the
+    same moment would otherwise each build a payout from the same sales.
+    """
+    from django.db import transaction
+
+    method = method or Payout.Method.ECOCASH
+
+    with transaction.atomic():
+        pending = list(
+            unpaid_payments_for(organization)
+            .select_for_update()
+            .values_list("pk", "amount", "platform_fee", "currency")
+        )
+        if not pending:
+            return None
+
+        gross = sum((row[1] for row in pending), Decimal("0"))
+        fees = sum((row[2] or Decimal("0") for row in pending), Decimal("0"))
+        net = gross - fees
+        if net <= 0:
+            return None
+
+        payout = Payout.objects.create(
+            organization=organization,
+            gross_amount=gross,
+            fee_amount=fees,
+            amount=net,
+            currency=pending[0][3],
+            method=method,
+            destination=destination,
+            note=note,
+            created_by=by_user,
+        )
+        Payment.objects.filter(pk__in=[row[0] for row in pending]).update(payout=payout)
+
+    return payout
+
+
+def societies_owed():
+    """Every society with money waiting, largest first — the staff work queue."""
+    from organizations.models import Organization
+
+    rows = (
+        unpaid_payments()
+        .values("registration__event__organization")
+        .annotate(
+            gross=models.Sum("amount"),
+            fees=models.Sum("platform_fee"),
+            tickets=models.Count("pk"),
+        )
+    )
+    by_id = {row["registration__event__organization"]: row for row in rows}
+    organizations = Organization.objects.filter(pk__in=by_id).select_related("university")
+
+    owed = []
+    for organization in organizations:
+        row = by_id[organization.pk]
+        gross = row["gross"] or Decimal("0")
+        fees = row["fees"] or Decimal("0")
+        owed.append(
+            {
+                "organization": organization,
+                "gross": gross,
+                "fees": fees,
+                "outstanding": gross - fees,
+                "tickets": row["tickets"],
+            }
+        )
+
+    owed.sort(key=lambda row: row["outstanding"], reverse=True)
+    return owed

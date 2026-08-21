@@ -1,0 +1,46 @@
+{% extends "emails/_base.html" %}
+
+{% block content %}
+  <h1 style="margin:0 0 6px; font-size:22px; line-height:1.25; font-weight:800; color:#1a1b33;">
+    A {{ target_kind }} has been reported
+  </h1>
+  <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#4a4e69;">
+    Somebody who can see it thinks it shouldn't be up. It's still live — nothing
+    is taken down automatically.
+  </p>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="border:1px solid #ffd8a8; border-radius:12px; background:#fff8ef;">
+    <tr>
+      <td style="padding:16px;">
+        <p style="margin:0 0 4px; font-size:15px; font-weight:700; color:#1a1b33;">{{ target_name }}</p>
+        <p style="margin:0 0 10px; font-size:13px; line-height:1.6; color:#4a4e69;">
+          <strong>{{ report.get_reason_display }}</strong>
+        </p>
+        {% if report.detail %}
+          <p style="margin:0; font-size:13px; line-height:1.6; color:#4a4e69;">“{{ report.detail }}”</p>
+        {% endif %}
+        <p style="margin:10px 0 0; font-size:12px; color:#74788f;">
+          Reported by {{ report.reporter.display_name }}
+          {% if not report.reporter.email_is_verified %}(email unconfirmed){% endif %}
+        </p>
+      </td>
+    </tr>
+  </table>
+
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;">
+    <tr>
+      <td style="border-radius:10px; background:#4f56a8;">
+        <a href="{{ queue_url }}"
+           style="display:inline-block; padding:12px 24px; font-size:14px; font-weight:700; color:#ffffff; text-decoration:none;">
+          Open the queue
+        </a>
+      </td>
+    </tr>
+  </table>
+
+  <p style="margin:20px 0 0; font-size:12px; line-height:1.6; color:#74788f;">
+    Only the first report about something sends one of these, so more people may
+    have flagged it since. <a href="{{ target_url }}" style="color:#4a4e69;">See it as they do</a>.
+  </p>
+{% endblock %}

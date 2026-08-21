@@ -1,0 +1,54 @@
+{% extends "emails/_base.html" %}
+
+{% block content %}
+  <h1 style="margin:0 0 6px; font-size:22px; line-height:1.25; font-weight:800; color:#1a1b33;">
+    {{ payout.amount_display }} is on its way
+  </h1>
+  <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#4a4e69;">
+    Your ticket takings for {{ organization.name }}, less our fee. Check it against
+    the confirmation code below — and if the numbers don't match ours, reply and
+    we'll go through it with you.
+  </p>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="border:1px solid #dddee6; border-radius:12px; background:#fafaf7;">
+    <tr>
+      <td style="padding:16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13px; color:#4a4e69;">
+          <tr>
+            <td style="padding:3px 0;">Tickets sold</td>
+            <td align="right" style="padding:3px 0;">{{ payout.ticket_count }}</td>
+          </tr>
+          <tr>
+            <td style="padding:3px 0;">Collected</td>
+            <td align="right" style="padding:3px 0;">{{ payout.currency }} {{ payout.gross_amount }}</td>
+          </tr>
+          <tr>
+            <td style="padding:3px 0;">Our fee</td>
+            <td align="right" style="padding:3px 0;">− {{ payout.currency }} {{ payout.fee_amount }}</td>
+          </tr>
+          <tr>
+            <td style="border-top:1px solid #dddee6; padding:8px 0 3px; font-weight:700; color:#1a1b33;">Sent to you</td>
+            <td align="right" style="border-top:1px solid #dddee6; padding:8px 0 3px; font-weight:700; color:#1a1b33;">{{ payout.amount_display }}</td>
+          </tr>
+        </table>
+        <p style="margin:12px 0 0; font-size:12px; line-height:1.6; color:#74788f;">
+          Sent by {{ payout.get_method_display }}{% if payout.destination %} to {{ payout.destination }}{% endif %}<br />
+          Confirmation code: <strong style="color:#1a1b33;">{{ payout.external_reference }}</strong><br />
+          Our reference: {{ payout.reference }}
+        </p>
+      </td>
+    </tr>
+  </table>
+
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;">
+    <tr>
+      <td style="border-radius:10px; background:#4f56a8;">
+        <a href="{{ statement_url }}"
+           style="display:inline-block; padding:12px 24px; font-size:14px; font-weight:700; color:#ffffff; text-decoration:none;">
+          See every ticket in this payout
+        </a>
+      </td>
+    </tr>
+  </table>
+{% endblock %}

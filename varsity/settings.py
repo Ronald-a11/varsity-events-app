@@ -408,6 +408,14 @@ PESEPAY_METHOD_CODES = {
 # trade-offs against a Paynow merchant account.
 # No default: a real wallet number doesn't belong in a public repo, and a
 # placeholder would quietly send students' money to a stranger.
+# What the platform keeps from each ticket it sells on a society's behalf.
+# Zero by default, deliberately: every deployment that existed before the payout
+# ledger took no fee, and switching one on by upgrading would be taking money
+# nobody agreed to. Stamped onto each payment at settlement, so changing it
+# never restates what a society was already owed.
+PLATFORM_FEE_PERCENT = float(os.getenv("PLATFORM_FEE_PERCENT", "0") or 0)
+PLATFORM_FEE_FIXED = float(os.getenv("PLATFORM_FEE_FIXED", "0") or 0)
+
 ECOCASH_MERCHANT_NUMBER = os.getenv("ECOCASH_MERCHANT_NUMBER", "")
 ECOCASH_MERCHANT_NAME = os.getenv("ECOCASH_MERCHANT_NAME", "Varsity Events")
 ECOCASH_DIRECT_ENABLED = env_bool("ECOCASH_DIRECT_ENABLED", True)
@@ -620,6 +628,14 @@ if TESTING:
     # would otherwise trip a throttle. The tests that cover throttling turn it
     # back on with @override_settings(RATELIMIT_ENABLE=True).
     RATELIMIT_ENABLE = False
+
+    # No fee, whatever the developer's .env says. The rate is a live business
+    # decision that changes, and a suite that reads it from the environment
+    # asserts something different on every machine — this one already failed on
+    # the box where the real rate was first set. Tests that care about a fee
+    # state it with @override_settings(PLATFORM_FEE_PERCENT=...).
+    PLATFORM_FEE_PERCENT = 0
+    PLATFORM_FEE_FIXED = 0
 
     # Keep the noise down; a failing test shows its own output.
     LOGGING["root"]["level"] = "CRITICAL"

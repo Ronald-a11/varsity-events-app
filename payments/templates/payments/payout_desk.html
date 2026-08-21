@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Admin · Payouts · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <span class="chip bg-brand-900 text-white">Platform admin</span>
+        <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Payouts</h1>
+        <p class="mt-1 text-sm text-ink-subtle">
+          Ticket money is collected into our accounts. This is what we owe the societies
+          that ran the events{% if fee_percent %}, after our {{ fee_percent|floatformat }}% fee{% endif %}.
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <a href="{% url 'core:staff_dashboard' %}" class="btn-ghost">Events</a>
+        <a href="{% url 'payments:verify' %}" class="btn-ghost">Verify EcoCash</a>
+      </div>
+    </div>
+
+    <!-- Owed -->
+    <section class="mt-10">
+      <h2 class="section-title">Outstanding</h2>
+      {% if owed %}
+        <div class="mt-4 space-y-3">
+          {% for row in owed %}
+            <div class="card p-5">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <h3 class="font-semibold text-ink">
+                    <a href="{{ row.organization.get_absolute_url }}" class="hover:text-brand-600">{{ row.organization.name }}</a>
+                  </h3>
+                  <p class="mt-0.5 text-xs text-ink-subtle">
+                    {% if row.organization.university %}{{ row.organization.university.label }} · {% endif %}
+                    {{ row.tickets }} ticket{{ row.tickets|pluralize }} ·
+                    {{ row.gross|floatformat:2 }} collected, {{ row.fees|floatformat:2 }} kept
+                    {% if not row.organization.email %}
+                      · <span class="text-amber-600">no contact email on file</span>
+                    {% endif %}
+                  </p>
+                </div>
+                <p class="text-xl font-extrabold text-emerald-600">{{ row.outstanding|floatformat:2 }}</p>
+              </div>
+
+              <form method="post" action="{% url 'payments:payout_prepare' row.organization.slug %}"
+                    class="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-hairline pt-4">
+                {% csrf_token %}
+                <select name="method" class="rounded-lg border border-hairline px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none">
+                  <option value="ecocash">EcoCash</option>
+                  <option value="bank">Bank transfer</option>
+                  <option value="cash">Cash</option>
+                  <option value="other">Other</option>
+                </select>
+                <input type="text" name="destination" maxlength="120" placeholder="Wallet or account number"
+                       class="w-52 rounded-lg border border-hairline px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none" />
+                <button class="btn-primary btn-sm">Prepare payout</button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card mt-4 px-6 py-12 text-center">
+          <p class="text-3xl">✅</p>
+          <h3 class="mt-3 font-semibold text-ink">Nothing outstanding</h3>
+          <p class="mt-1 text-sm text-ink-subtle">Every settled ticket has been paid out.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- Prepared, awaiting the actual transfer -->
+    {% if prepared %}
+      <section class="mt-10">
+        <h2 class="section-title">Prepared — send the money, then confirm</h2>
+        <div class="mt-4 space-y-3">
+          {% for payout in prepared %}
+            <div class="card p-5">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <a href="{% url 'payments:payout_detail' payout.reference %}"
+                     class="font-mono font-semibold text-ink hover:text-brand-600">{{ payout.reference }}</a>
+                  <p class="mt-0.5 text-xs text-ink-subtle">
+                    {{ payout.organization.name }} · {{ payout.ticket_count }} ticket{{ payout.ticket_count|pluralize }}
+                    · {{ payout.get_method_display }}{% if payout.destination %} to {{ payout.destination }}{% endif %}
+                    · prepared {{ payout.created_at|naturaltime }}
+                  </p>
+                </div>
+                <p class="text-xl font-extrabold text-ink">{{ payout.amount_display }}</p>
+              </div>
+
+              <div class="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-hairline pt-4">
+                <form method="post" action="{% url 'payments:payout_cancel' payout.reference %}"
+                      onsubmit="return confirm('Cancel {{ payout.reference }}? Its tickets go back into the outstanding pool.')">
+                  {% csrf_token %}
+                  <button class="btn-ghost btn-sm text-rose-600">Cancel</button>
+                </form>
+                <form method="post" action="{% url 'payments:payout_mark_paid' payout.reference %}"
+                      class="flex flex-wrap items-center gap-2">
+                  {% csrf_token %}
+                  <input type="text" name="destination" maxlength="120" value="{{ payout.destination }}"
+                         placeholder="Sent to"
+                         class="w-40 rounded-lg border border-hairline px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none" />
+                  <input type="text" name="external_reference" maxlength="80" required
+                         placeholder="EcoCash / bank code"
+                         class="w-44 rounded-lg border border-hairline px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none" />
+                  <button class="btn-primary btn-sm">Mark sent</button>
+                </form>
+              </div>
+              <p class="mt-2 text-right text-xs text-ink-subtle">
+                The confirmation code is what makes this reconcilable later, so it's required.
+              </p>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Sent -->
+    {% if recent %}
+      <section class="mt-10">
+        <h2 class="section-title">Recently sent</h2>
+        <div class="mt-4 overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card">
+          <table class="min-w-full divide-y divide-hairline text-sm">
+            <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-ink-subtle">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Reference</th>
+                <th class="px-4 py-3 font-semibold">Society</th>
+                <th class="hidden px-4 py-3 font-semibold sm:table-cell">Confirmation</th>
+                <th class="px-4 py-3 text-right font-semibold">Amount</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-hairline">
+              {% for payout in recent %}
+                <tr class="hover:bg-surface-2">
+                  <td class="px-4 py-3">
+                    <a href="{% url 'payments:payout_detail' payout.reference %}"
+                       class="font-mono text-ink hover:text-brand-600">{{ payout.reference }}</a>
+                    <p class="text-xs text-ink-subtle">{{ payout.paid_at|naturaltime }}</p>
+                  </td>
+                  <td class="px-4 py-3 text-ink-muted">{{ payout.organization.name }}</td>
+                  <td class="hidden px-4 py-3 font-mono text-xs text-ink-subtle sm:table-cell">{{ payout.external_reference }}</td>
+                  <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-ink">{{ payout.amount_display }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

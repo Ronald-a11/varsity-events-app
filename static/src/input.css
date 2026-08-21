@@ -316,6 +316,78 @@
     @apply bg-gradient-to-br from-white via-flame-200 to-flame-400 bg-clip-text text-transparent;
   }
 
+  /* Type set over a photograph.
+   *
+   * A scrim alone cannot save text on a hero, because the bright part of the
+   * picture moves with the crop: the stage lights sit dead centre at one
+   * viewport width and off to the side at another. A shadow travels with the
+   * letterforms instead, so legibility stops depending on what happens to be
+   * behind them.
+   *
+   * Two shadows, deliberately: a tight dark one for edge contrast against a
+   * blown-out highlight, and a wide soft one that lifts the whole block off
+   * the image without reading as a drop shadow. */
+  .text-on-photo {
+    text-shadow:
+      0 1px 2px rgb(10 11 26 / 0.8),
+      0 2px 8px rgb(10 11 26 / 0.65),
+      0 12px 36px rgb(10 11 26 / 0.55);
+  }
+
+  /* The gradient text has no glyph fill to cast a shadow — the colour lives in
+   * the background, clipped to the text — so it gets a soft dark halo behind
+   * the element instead. */
+  .text-gradient.text-on-photo {
+    text-shadow: none;
+    filter:
+      drop-shadow(0 1px 2px rgb(10 11 26 / 0.7))
+      drop-shadow(0 4px 16px rgb(10 11 26 / 0.6));
+  }
+}
+
+@layer utilities {
+  /* A pool of darkness under the words, fading out before it reaches the edges
+   * of the frame. The point is that the picture stays visible where it is
+   * doing the work — silhouetted hands at the foot, stage colour at the
+   * sides — while the middle, where the type sits, is calm enough to read. */
+  .hero-scrim {
+    background: radial-gradient(
+      ellipse 80% 68% at 50% 44%,
+      rgb(17 18 38 / 0.92) 0%,
+      rgb(17 18 38 / 0.78) 42%,
+      rgb(17 18 38 / 0.42) 70%,
+      rgb(17 18 38 / 0.12) 100%
+    );
+  }
+
+  /* Softens the picture only where the words are.
+   *
+   * Darkening alone stops working past a point: a busy photograph competes
+   * with type through detail as much as through brightness, and stacking more
+   * shade just leaves a dark picture that still has edges running through the
+   * letters. Blurring the region behind the text kills the detail and leaves
+   * the rest of the frame sharp.
+   *
+   * Masked to the same ellipse as the scrim, so the two fade out together.
+   * Where backdrop-filter is unsupported this renders as nothing at all and
+   * the scrim and the text shadows still carry it. */
+  .hero-soften {
+    -webkit-backdrop-filter: blur(7px);
+    backdrop-filter: blur(7px);
+    -webkit-mask-image: radial-gradient(
+      ellipse 72% 58% at 50% 44%,
+      black 0%,
+      black 42%,
+      transparent 76%
+    );
+    mask-image: radial-gradient(
+      ellipse 72% 58% at 50% 44%,
+      black 0%,
+      black 42%,
+      transparent 76%
+    );
+  }
+
   .text-balance {
     text-wrap: balance;
   }

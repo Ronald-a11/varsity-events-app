@@ -55,10 +55,37 @@
             <a href="{% url 'organizations:edit' organization.slug %}" class="btn-ghost">Edit</a>
             <a href="{% url 'organizations:members' organization.slug %}" class="btn-ghost">Members</a>
             <a href="{% url 'events:create' %}" class="btn-secondary">New event</a>
+          {% elif open_claim %}
+            <span class="btn-ghost cursor-default text-ink-subtle">Claim with us</span>
+          {% elif user.is_authenticated %}
+            <a href="{% url 'organizations:claim' organization.slug %}" class="btn-ghost">Claim this society</a>
           {% endif %}
         </div>
       </div>
     </div>
+
+    {% if organization.is_unclaimed and not can_manage %}
+      <div class="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex sm:items-center sm:gap-4">
+        <div class="flex-1">
+          <p class="font-semibold text-ink">Nobody is running this page yet</p>
+          <p class="mt-1 text-sm text-ink-muted">
+            We listed {{ organization.name }} so students could find it. If you're on the
+            committee, take it over — you'll be able to publish events, sell tickets and
+            see who's coming.
+          </p>
+        </div>
+        {% if open_claim %}
+          <p class="mt-3 text-sm font-medium text-amber-700 dark:text-amber-300 sm:mt-0">
+            Your claim is with us.
+          </p>
+        {% elif user.is_authenticated %}
+          <a href="{% url 'organizations:claim' organization.slug %}" class="btn-primary mt-3 sm:mt-0">Claim it</a>
+        {% else %}
+          <a href="{% url 'accounts:login' %}?next={% url 'organizations:claim' organization.slug %}"
+             class="btn-primary mt-3 sm:mt-0">Sign in to claim it</a>
+        {% endif %}
+      </div>
+    {% endif %}
 
     <!-- Stats -->
     <dl class="mt-6 flex flex-wrap gap-6 border-b border-hairline pb-6 text-sm">
@@ -142,5 +169,14 @@
         {% endif %}
       </aside>
     </div>
+
+    <!-- Report -->
+    {% if user.is_authenticated and not can_manage %}
+      <p class="mt-10 border-t border-hairline pt-6 text-center text-xs text-ink-subtle">
+        Is this society pretending to be someone it isn't?
+        <a href="{% url 'core:report' 'society' organization.slug %}" class="font-medium underline underline-offset-2 hover:text-ink-muted">Report it</a>
+        and a person will look.
+      </p>
+    {% endif %}
   </div>
 {% endblock %}

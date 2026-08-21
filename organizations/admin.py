@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Membership, Organization
+from .models import Membership, Organization, OrganizationClaim
 
 
 class MembershipInline(admin.TabularInline):
@@ -30,3 +30,14 @@ class MembershipAdmin(admin.ModelAdmin):
     list_filter = ("role", "is_active")
     search_fields = ("user__username", "organization__name")
     autocomplete_fields = ("user", "organization")
+
+
+@admin.register(OrganizationClaim)
+class OrganizationClaimAdmin(admin.ModelAdmin):
+    """The queue lives at /staff/claims/; this is for the awkward cases."""
+
+    list_display = ("organization", "user", "role_title", "status", "created_at", "reviewed_by")
+    list_filter = ("status", "organization__university")
+    search_fields = ("organization__name", "user__username", "user__email", "evidence")
+    autocomplete_fields = ()
+    readonly_fields = ("created_at", "reviewed_at")

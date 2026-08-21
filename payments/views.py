@@ -11,13 +11,23 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
+from decimal import Decimal
+
 from accounts.twofactor import requires_second_factor
+from core import mail
 from events.models import Event, Registration
+from organizations.models import Organization
 
 from django.conf import settings
 
 from .forms import CheckoutForm, ConfirmTransferForm
-from .models import Payment
+from .models import (
+    Payment,
+    Payout,
+    ledger_for,
+    prepare_payout,
+    societies_owed,
+)
 from .paynow import PaynowClient, verify_hash
 from .pesepay import PesepayClient, PesepayError
 
@@ -627,3 +637,197 @@ def simulator(request, reference):
         "payments/simulator.html",
         {"payment": payment, "event": payment.registration.event},
     )
+
+
+# --------------------------------------------------------------------------
+# Payouts — what the platform owes the societies whose events it sold
+# --------------------------------------------------------------------------
+
+
+@login_required
+def earnings(request):
+    """A society's statement: what we hold, what we kept, what we've sent.
+
+    Organizers see only their own societies. The whole point is that a society
+    can check our arithmetic without asking us, so every figure here is
+    reachable back to the individual tickets that make it up.
+    """
+    managed = request.user.managed_organizations().select_related("university")
+    if not managed.exists():
+        raise Http404("No societies to show earnings for.")
+
+    societies = []
+    for organization in managed:
+        ledger = ledger_for(organization)
+        ledger["organization"] = organization
+        societies.append(ledger)
+
+    payouts = (
+        Payout.objects.filter(organization__in=managed)
+        .select_related("organization")
+        .exclude(status=Payout.Status.CANCELLED)[:25]
+    )
+
+    totals = {
+        "outstanding": sum((row["outstanding"] for row in societies), Decimal("0")),
+        "paid_out": sum((row["paid_out"] for row in societies), Decimal("0")),
+        "fees": sum((row["fees"] for row in societies), Decimal("0")),
+        "tickets": sum(row["tickets"] for row in societies),
+    }
+
+    return render(
+        request,
+        "payments/earnings.html",
+        {
+            "societies": societies,
+            "payouts": payouts,
+            "totals": totals,
+            "fee_percent": getattr(settings, "PLATFORM_FEE_PERCENT", 0),
+            "fee_fixed": getattr(settings, "PLATFORM_FEE_FIXED", 0),
+            "crumbs": [
+                {"label": "Manage", "url": reverse("events:dashboard")},
+                {"label": "Earnings"},
+            ],
+            "page_subtitle": (
+                "Ticket money is paid to us so a seat can be held the moment somebody "
+                "starts paying. This is what we owe you, and what we've already sent."
+            ),
+        },
+    )
+
+
+@login_required
+def payout_detail(request, reference):
+    """One settlement, broken down to the tickets it covered.
+
+    Visible to the society it belongs to and to platform staff — a statement
+    nobody can open is a statement nobody trusts.
+    """
+    payout = get_object_or_404(
+        Payout.objects.select_related("organization", "created_by"), reference=reference
+    )
+
+    if not (request.user.is_platform_staff or payout.organization.can_manage(request.user)):
+        raise Http404("No payout matches the given query.")
+
+    payments = payout.payments.select_related(
+        "registration", "registration__event", "user"
+    ).order_by("paid_at")
+
+    return render(
+        request,
+        "payments/payout_detail.html",
+        {
+            "payout": payout,
+            "payments": payments,
+            "crumbs": [
+                {"label": "Manage", "url": reverse("events:dashboard")},
+                {"label": "Earnings", "url": reverse("payments:earnings")},
+                {"label": payout.reference},
+            ],
+        },
+    )
+
+
+def _staff_only(request):
+    if not request.user.is_platform_staff:
+        raise Http404("Not found.")
+
+
+@login_required
+def payout_desk(request):
+    """Staff view: every society with money waiting, and the button that sends it.
+
+    Preparing a payout claims the sales it covers, so pressing this twice in a
+    row cannot pay the same tickets out twice — the second press finds nothing
+    left to claim.
+    """
+    _staff_only(request)
+
+    return render(
+        request,
+        "payments/payout_desk.html",
+        {
+            "owed": societies_owed(),
+            "prepared": Payout.objects.filter(status=Payout.Status.PENDING).select_related(
+                "organization"
+            ),
+            "recent": Payout.objects.filter(status=Payout.Status.PAID).select_related(
+                "organization"
+            )[:15],
+            "fee_percent": getattr(settings, "PLATFORM_FEE_PERCENT", 0),
+        },
+    )
+
+
+@login_required
+@require_POST
+def payout_prepare(request, slug):
+    _staff_only(request)
+
+    organization = get_object_or_404(Organization, slug=slug)
+    payout = prepare_payout(
+        organization,
+        by_user=request.user,
+        method=request.POST.get("method") or Payout.Method.ECOCASH,
+        destination=(request.POST.get("destination") or "").strip(),
+    )
+
+    if payout is None:
+        messages.info(request, f"Nothing outstanding for {organization.name}.")
+    else:
+        messages.success(
+            request,
+            f"{payout.reference} prepared: {payout.amount_display} to {organization.name}, "
+            f"covering {payout.ticket_count} ticket(s). Send the money, then mark it sent.",
+        )
+
+    return redirect("payments:payout_desk")
+
+
+@login_required
+@require_POST
+def payout_mark_paid(request, reference):
+    _staff_only(request)
+
+    payout = get_object_or_404(Payout, reference=reference)
+    external = (request.POST.get("external_reference") or "").strip()
+
+    if not external:
+        # Without the wallet's own code this row cannot be reconciled against a
+        # statement later, which is most of what it is for.
+        messages.error(
+            request,
+            "Enter the EcoCash or bank confirmation code before marking it sent.",
+        )
+    elif payout.mark_paid(
+        by_user=request.user,
+        external_reference=external,
+        destination=(request.POST.get("destination") or "").strip(),
+    ):
+        mail.send_payout_sent(payout)
+        messages.success(request, f"{payout.reference} marked as sent.")
+    else:
+        messages.info(request, "That payout was already sent.")
+
+    return redirect("payments:payout_desk")
+
+
+@login_required
+@require_POST
+def payout_cancel(request, reference):
+    _staff_only(request)
+
+    payout = get_object_or_404(Payout, reference=reference)
+    try:
+        payout.cancel()
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.info(
+            request,
+            f"{payout.reference} cancelled — its {payout.ticket_count} ticket(s) are "
+            "back in the outstanding pool.",
+        )
+
+    return redirect("payments:payout_desk")

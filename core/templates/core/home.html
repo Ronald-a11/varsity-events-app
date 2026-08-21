@@ -1,47 +1,97 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize static %}
 
 {% block title %}{{ SITE_NAME }} — {{ SITE_TAGLINE }}{% endblock %}
 
 {% block content %}
-  <!-- Hero -->
+  {% comment %}
+    Full-bleed photograph, centred type, one call to action.
+
+    The photo is licensed stock and says so in static/img/CREDITS.md. It is
+    NOT a Zimbabwean campus, which is a compromise worth being uncomfortable
+    about: replace it with a real photograph from a real event here the moment
+    there is one.
+
+    The section keeps its brand-950 background underneath, so the hero is
+    already the right colour before the image decodes and stays readable if it
+    never arrives at all.
+  {% endcomment %}
   <section class="relative overflow-hidden bg-brand-950">
-    <div class="absolute inset-0 bg-mesh-brand"></div>
-    <div class="absolute inset-0 bg-grid-faint bg-grid opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"></div>
-    <div class="absolute -right-32 -top-32 h-[28rem] w-[28rem] animate-float-slow rounded-full bg-brand-500/25 blur-3xl"></div>
-    <div class="absolute -bottom-40 -left-24 h-[26rem] w-[26rem] rounded-full bg-azure-500/25 blur-3xl"></div>
+    {% comment %}
+      object-position is art direction, not a design token. The subject sits
+      low in the frame, and a centred crop of a 1.5:1 photograph inside a 2.5:1
+      band shows the lighting rig instead of her. Inline rather than an
+      arbitrary Tailwind class, because such a class only exists after a CSS
+      rebuild — changing the number and forgetting to rebuild silently falls
+      back to centre.
+    {% endcomment %}
+    <img src="{% static 'img/hero-festival.jpg' %}"
+         alt="A student watching a live set from the middle of a festival crowd."
+         class="absolute inset-0 h-full w-full object-cover"
+         style="object-position: 50% 68%"
+         fetchpriority="high" decoding="async" />
 
-    <div class="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
-      <div class="max-w-2xl">
-        <span class="chip animate-fade-up bg-white/10 text-white ring-1 ring-inset ring-white/20 backdrop-blur">
-          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span>
-          🇿🇼 {{ stats.universities }} universities · {{ stats.societies }} societies · {{ stats.events }} events
-        </span>
+    {% comment %}
+      Three overlays, each doing a different job.
 
-        <h1 class="mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tightest text-white text-balance sm:text-6xl lg:text-7xl">
-          Every university event<br />in Zimbabwe,
-          <span class="text-gradient">one place.</span>
-        </h1>
+      Four layers. The flat wash takes the brightness down; `hero-soften`
+      blurs the picture where the words are; the scrim is a pool of shade under
+      them; the vertical gradient darkens the top, where the transparent nav
+      sits, and the foot, where the hero hands off to the page colour without
+      ending on a hard line.
 
-        <p class="mt-6 max-w-xl text-lg leading-relaxed text-brand-100/90">
-          Campus events live in WhatsApp groups, faded notice-board posters and statuses that
-          expire in 24 hours. {{ SITE_NAME }} puts them all on one page — searchable, ticketed,
-          and honest about whether tickets are still going.
-        </p>
+      The blur is the one that does the heavy lifting. A busy photograph
+      competes with type through *detail* as much as brightness, so past a
+      point more shade only produces a dark picture with edges still running
+      through the letters.
 
-        <div class="mt-9 flex flex-col gap-3 sm:flex-row">
-          <a href="{% url 'accounts:register' %}" class="btn bg-white px-7 py-3.5 text-base text-brand-800 shadow-2xl hover:bg-brand-50">
-            Create a free account
-          </a>
-          <a href="{% url 'events:list' %}" class="btn border border-white/25 px-7 py-3.5 text-base text-white backdrop-blur transition hover:bg-white/10">
-            Browse events first
-          </a>
-        </div>
+      Heavier than they were under the generated artwork, because a photograph
+      is bright wherever it happens to be bright — this one has a lit stage
+      across its top third — while the drawing was dark where the type goes by
+      construction.
 
-        <p class="mt-4 text-sm text-brand-100/70">
-          Free for every student. Sign in and your feed fills with what's on this week.
-        </p>
+      The type also carries its own shadow (.text-on-photo), so legibility
+      stops depending on what the crop puts behind a given word.
+
+      `manage.py make_hero` still draws the diagram, and swapping this src back
+      to img/hero-universities.jpg restores it. Kept because the moment there
+      is a photograph of a real event on this platform, that is the hero, and
+      whichever of these is standing in should be easy to replace.
+    {% endcomment %}
+    <div class="absolute inset-0 bg-brand-950/50"></div>
+    <div class="absolute inset-0 hero-soften"></div>
+    <div class="absolute inset-0 hero-scrim"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-brand-950/75 via-transparent to-brand-950/85"></div>
+
+    <div class="relative mx-auto max-w-4xl px-4 py-24 text-center sm:px-6 lg:py-36">
+      <span class="chip animate-fade-up bg-brand-950/50 text-white ring-1 ring-inset ring-white/25 backdrop-blur">
+        <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span>
+        🇿🇼 {{ stats.universities }} universities · {{ stats.societies }} societies · {{ stats.events }} events
+      </span>
+
+      <h1 class="text-on-photo mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tightest text-white text-balance sm:text-6xl lg:text-7xl">
+        Every university event in Zimbabwe,
+        <span class="text-gradient text-on-photo">one place.</span>
+      </h1>
+
+      <p class="text-on-photo mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/95 text-balance">
+        Campus events live in WhatsApp groups, faded notice-board posters and statuses that
+        expire in 24 hours. {{ SITE_NAME }} puts them all on one page — searchable, ticketed,
+        and honest about whether tickets are still going.
+      </p>
+
+      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="{% url 'accounts:register' %}" class="btn bg-white px-8 py-4 text-base text-brand-800 shadow-2xl hover:bg-brand-50">
+          Create a free account
+        </a>
+        <a href="{% url 'events:list' %}" class="btn border border-white/25 px-8 py-4 text-base text-white backdrop-blur transition hover:bg-white/10">
+          Browse events first
+        </a>
       </div>
+
+      <p class="text-on-photo mt-5 text-sm text-white/80">
+        Free for every student. Sign in and your feed fills with what's on this week.
+      </p>
     </div>
 
     <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-surface-2 to-transparent"></div>

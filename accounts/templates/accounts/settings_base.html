@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% comment %}
+  The shell every account page sits in.
+
+  Editing your profile, changing your password and turning on a second factor
+  were three unrelated pages reachable only from buttons on a fourth. They are
+  one job — looking after your own account — so they now share a frame and a
+  nav, and you can move between them without going back to the profile first.
+
+  The active item is worked out from the URL name rather than passed in by each
+  view, so adding a page here is a template change and nothing else.
+{% endcomment %}
+
+{% block content %}
+  {% with url_name=request.resolver_match.url_name %}
+    <div class="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+      <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+          {% block settings_title %}Settings{% endblock %}
+        </h1>
+        <p class="mt-1 text-sm text-ink-subtle">
+          {% block settings_subtitle %}Your account, and who can see what.{% endblock %}
+        </p>
+      </div>
+
+      <div class="mt-8 grid gap-8 lg:grid-cols-[210px_minmax(0,1fr)]">
+        <!-- Nav. A scrolling row on a phone, a rail on a laptop. -->
+        <nav aria-label="Settings">
+          <ul class="-mx-1 flex gap-1 overflow-x-auto pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:pb-0">
+            {% for item in settings_nav %}
+              <li class="shrink-0 lg:shrink">
+                <a href="{{ item.url }}"
+                   class="flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition
+                          {% if item.active %}bg-brand-500/10 text-brand-700 dark:text-brand-300{% else %}text-ink-muted hover:bg-surface-3 hover:text-ink{% endif %}"
+                   {% if item.active %}aria-current="page"{% endif %}>
+                  <span aria-hidden="true" class="text-base leading-none">{{ item.icon }}</span>
+                  <span>{{ item.label }}</span>
+                  {% if item.badge %}
+                    <span class="ml-auto hidden h-2 w-2 shrink-0 rounded-full bg-amber-500 lg:block"
+                          title="{{ item.badge }}"></span>
+                  {% endif %}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+
+          <p class="mt-5 hidden border-t border-hairline pt-4 text-xs leading-relaxed text-ink-subtle lg:block">
+            Signed in as <span class="font-medium text-ink-muted">{{ user.username }}</span>.
+            <a href="{% url 'accounts:logout' %}" class="underline underline-offset-2 hover:text-ink-muted">Sign out</a>
+          </p>
+        </nav>
+
+        <div class="min-w-0">
+          {% block settings_content %}{% endblock %}
+        </div>
+      </div>
+    </div>
+  {% endwith %}
+{% endblock %}

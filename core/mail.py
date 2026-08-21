@@ -170,3 +170,125 @@ def send_transfer_awaiting_organizer(payment) -> bool:
             "queue_url": absolute_url(reverse("payments:verify")),
         },
     )
+
+
+def send_event_approved(event) -> bool:
+    """A queued event cleared review. Tell whoever has to promote it."""
+    recipients = [member.email for member in event.organization.managers() if member.email]
+    return send_mail(
+        to=recipients,
+        subject=f"“{event.title}” is live",
+        template="event_approved",
+        context={
+            "event": event,
+            "event_url": absolute_url(event.get_absolute_url()),
+            "manage_url": absolute_url(
+                reverse("events:manage_attendees", kwargs={"slug": event.slug})
+            ),
+        },
+    )
+
+
+def send_event_sent_back(event, note="") -> bool:
+    """Review said no. The reason travels with it, or this is just a shrug."""
+    recipients = [member.email for member in event.organization.managers() if member.email]
+    return send_mail(
+        to=recipients,
+        subject=f"“{event.title}” needs another look",
+        template="event_sent_back",
+        context={
+            "event": event,
+            "note": note or event.review_note,
+            "edit_url": absolute_url(reverse("events:edit", kwargs={"slug": event.slug})),
+        },
+    )
+
+
+def send_claim_received(claim) -> bool:
+    """Acknowledge a society claim, so it doesn't feel like shouting into a well."""
+    return send_mail(
+        to=claim.user.email,
+        subject=f"We've got your claim on {claim.organization.name}",
+        template="claim_received",
+        context={
+            "claim": claim,
+            "organization": claim.organization,
+            "user": claim.user,
+            "organization_url": absolute_url(claim.organization.get_absolute_url()),
+        },
+    )
+
+
+def send_claim_approved(claim) -> bool:
+    return send_mail(
+        to=claim.user.email,
+        subject=f"{claim.organization.name} is yours",
+        template="claim_approved",
+        context={
+            "claim": claim,
+            "organization": claim.organization,
+            "user": claim.user,
+            "organization_url": absolute_url(claim.organization.get_absolute_url()),
+            "create_url": absolute_url(reverse("events:create")),
+        },
+    )
+
+
+def send_claim_rejected(claim, note="") -> bool:
+    """A refusal that doesn't say why is a refusal somebody argues with."""
+    return send_mail(
+        to=claim.user.email,
+        subject=f"About your claim on {claim.organization.name}",
+        template="claim_rejected",
+        context={
+            "claim": claim,
+            "organization": claim.organization,
+            "user": claim.user,
+            "note": note or claim.review_note,
+        },
+    )
+
+
+def send_payout_sent(payout) -> bool:
+    """The money left. Tell the society, with the code to check against."""
+    recipients = [member.email for member in payout.organization.managers() if member.email]
+    return send_mail(
+        to=recipients,
+        subject=f"{payout.amount_display} sent to {payout.organization.name}",
+        template="payout_sent",
+        context={
+            "payout": payout,
+            "organization": payout.organization,
+            "statement_url": absolute_url(
+                reverse("payments:payout_detail", kwargs={"reference": payout.reference})
+            ),
+        },
+    )
+
+
+def send_report_alert(report) -> bool:
+    """Tell platform staff something on the feed has been reported.
+
+    Sent on the *first* open report about a thing, not on every one. Twenty
+    people reporting the same scam is one alert; twenty emails is a filter rule
+    and then a missed alert.
+    """
+    from accounts.models import User
+
+    recipients = [
+        person.email
+        for person in User.objects.filter(is_staff=True, is_active=True)
+        if person.email
+    ]
+    return send_mail(
+        to=recipients,
+        subject=f"Reported: {report.target_name}",
+        template="report_alert",
+        context={
+            "report": report,
+            "target_name": report.target_name,
+            "target_kind": report.target_kind,
+            "target_url": absolute_url(report.target.get_absolute_url()),
+            "queue_url": absolute_url(reverse("core:staff_reports")),
+        },
+    )

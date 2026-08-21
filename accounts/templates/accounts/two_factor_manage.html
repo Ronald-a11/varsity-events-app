@@ -1,46 +1,127 @@
-{% extends "base.html" %}
+{% extends "accounts/settings_base.html" %}
 
 {% block title %}Security · {{ SITE_NAME }}{% endblock %}
 
-{% block content %}
-  <div class="mx-auto max-w-md px-4 py-12 sm:px-6">
-    <h1 class="text-2xl font-extrabold tracking-tight text-ink">Security</h1>
+{% block settings_title %}Security{% endblock %}
+{% block settings_subtitle %}
+  What stands between somebody who has your password and your account.
+{% endblock %}
 
-    {% if enrolled %}
-      <div class="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-        <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-          ✓ Second factor is on
-        </p>
-        <p class="mt-1 text-xs text-emerald-800 dark:text-emerald-400">
-          {{ codes_left }} recovery code{{ codes_left|pluralize }} left.
+{% block settings_content %}
+  <!-- Second factor -->
+  <div class="card overflow-hidden">
+    <div class="flex flex-wrap items-start justify-between gap-4 border-b border-hairline p-6">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl
+                       {% if enrolled %}bg-emerald-500/10{% else %}bg-surface-3{% endif %} text-lg"
+                aria-hidden="true">🛡️</span>
+          <h2 class="text-base font-bold text-ink">Two-factor authentication</h2>
+        </div>
+        <p class="mt-2 max-w-prose text-sm leading-relaxed text-ink-muted">
+          {% if enrolled %}
+            A code from your authenticator app is needed as well as your password.
+          {% elif handles_money %}
+            This account can release payments, so it needs a second factor before it can
+            verify another transfer.
+          {% else %}
+            An extra step at sign-in, so a stolen password isn't enough on its own.
+          {% endif %}
         </p>
       </div>
+      <span class="chip shrink-0
+        {% if enrolled %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
+        {% elif handles_money %}bg-rose-500/10 text-rose-600 dark:text-rose-400
+        {% else %}bg-surface-3 text-ink-subtle{% endif %}">
+        {% if enrolled %}On{% elif handles_money %}Required{% else %}Off{% endif %}
+      </span>
+    </div>
 
-      <div class="mt-6 space-y-3">
-        <form method="post" action="{% url 'accounts:two_factor_regenerate_codes' %}">
-          {% csrf_token %}
-          <button type="submit" class="btn-secondary w-full">Generate new recovery codes</button>
-        </form>
+    {% if enrolled %}
+      <div class="flex flex-wrap items-center justify-between gap-4 p-6">
+        <div>
+          <p class="text-sm font-medium text-ink">Recovery codes</p>
+          <p class="mt-0.5 text-xs text-ink-subtle">
+            {{ codes_left }} left. They're how you get back in if you lose the phone.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a href="{% url 'accounts:two_factor_codes' %}" class="btn-secondary btn-sm">See codes</a>
+          <form method="post" action="{% url 'accounts:two_factor_regenerate_codes' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-ghost btn-sm">Generate new</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="border-t border-hairline bg-surface-2 p-6">
         <form method="post" action="{% url 'accounts:two_factor_disable' %}"
               onsubmit="return confirm('Remove the second factor from this account?')">
           {% csrf_token %}
-          <button type="submit" class="btn-secondary w-full text-rose-600 dark:text-rose-400">
+          <button type="submit" class="btn-ghost btn-sm text-rose-600 dark:text-rose-400">
             Turn off two-factor
           </button>
+          {% if handles_money %}
+            <p class="mt-2 text-xs text-ink-subtle">
+              You'll be asked to set it up again before you can verify another payment.
+            </p>
+          {% endif %}
         </form>
       </div>
     {% else %}
-      <p class="mt-2 text-sm text-ink-subtle">
-        {% if handles_money %}
-          This account can release payments, so it needs a second factor before it can verify
-          another transfer.
-        {% else %}
-          Not on. An extra step at sign-in, so a stolen password isn't enough on its own.
-        {% endif %}
-      </p>
-      <a href="{% url 'accounts:two_factor_setup' %}" class="btn-primary mt-6 block w-full text-center">
-        Set up two-factor
-      </a>
+      <div class="p-6">
+        <a href="{% url 'accounts:two_factor_setup' %}" class="btn-primary">Set up two-factor</a>
+        <p class="mt-3 text-xs text-ink-subtle">
+          Takes a minute. You'll need an authenticator app — Google Authenticator, Authy
+          and 1Password all work.
+        </p>
+      </div>
     {% endif %}
+  </div>
+
+  <!-- Email confirmation. The other half of "is this account really yours". -->
+  <div class="card mt-6 p-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl
+                       {% if user.email_is_verified %}bg-emerald-500/10{% else %}bg-amber-500/10{% endif %} text-lg"
+                aria-hidden="true">✉️</span>
+          <h2 class="text-base font-bold text-ink">Email address</h2>
+        </div>
+        <p class="mt-2 max-w-prose text-sm leading-relaxed text-ink-muted">
+          {% if user.email_is_verified %}
+            {{ user.email }} is confirmed. Password resets and tickets reach you there.
+          {% else %}
+            We've sent a link to <strong class="text-ink">{{ user.email }}</strong>. Until you
+            click it you can't register or claim a society.
+          {% endif %}
+        </p>
+      </div>
+      <span class="chip shrink-0
+        {% if user.email_is_verified %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400
+        {% else %}bg-amber-500/10 text-amber-600 dark:text-amber-400{% endif %}">
+        {% if user.email_is_verified %}Confirmed{% else %}Unconfirmed{% endif %}
+      </span>
+    </div>
+
+    {% if not user.email_is_verified %}
+      <form method="post" action="{% url 'accounts:resend_verification' %}" class="mt-4">
+        {% csrf_token %}
+        <button type="submit" class="btn-secondary btn-sm">Send the link again</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <!-- Password, so Security is a complete answer rather than half of one -->
+  <div class="card mt-6 flex flex-wrap items-center justify-between gap-4 p-6">
+    <div>
+      <div class="flex items-center gap-2.5">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-3 text-lg" aria-hidden="true">🔑</span>
+        <h2 class="text-base font-bold text-ink">Password</h2>
+      </div>
+      <p class="mt-2 text-sm text-ink-muted">Change it whenever you like.</p>
+    </div>
+    <a href="{% url 'accounts:password_change' %}" class="btn-secondary btn-sm">Change password</a>
   </div>
 {% endblock %}

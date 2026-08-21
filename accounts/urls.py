@@ -9,6 +9,10 @@ urlpatterns = [
     path("logout/", views.VarsityLogoutView.as_view(), name="logout"),
     path("register/", views.register, name="register"),
     path("available.json", views.check_availability, name="check_availability"),
+    # Confirming an email address. The link itself is open — it is read on
+    # whichever device the inbox is on — and resending is a signed-in POST.
+    path("verify/<str:token>/", views.verify_email, name="verify_email"),
+    path("verify/resend/", views.resend_verification, name="resend_verification"),
     path("password/", views.VarsityPasswordChangeView.as_view(), name="password_change"),
     # Forgotten password. Names match Django's defaults so the built-in
     # PasswordResetForm can reverse them when it builds the email.

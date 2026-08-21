@@ -134,6 +134,15 @@ class ProfileForm(TailwindFormMixin, forms.ModelForm):
             "bio": forms.Textarea(attrs={"rows": 3, "placeholder": "A line or two about you"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # AbstractUser leaves these blank=True, so the form rendered them as
+        # "optional" while the profile page nagged people to fill them in and
+        # `profile_is_complete` refused to pass without them. They are what an
+        # organizer reads off a door list; say so once, here.
+        for name in ("first_name", "last_name", "university"):
+            self.fields[name].required = True
+
     def clean_email(self):
         email = self.cleaned_data["email"].lower().strip()
         if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():

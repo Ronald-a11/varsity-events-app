@@ -17,10 +17,12 @@ from django.contrib.auth.views import (
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from events.models import Bookmark, Event, Registration
 
+from . import verification
 from .forms import LoginForm, ProfileForm, SignUpForm
 from .models import User
 
@@ -162,14 +164,68 @@ def register(request):
     if request.method == "POST" and form.is_valid():
         user = form.save()
         login(request, user)
+
+        # Sending is best-effort and the account is usable either way — an
+        # unconfirmed address costs you the ability to publish, not the ability
+        # to look around. Anything else and a dead mail server locks out every
+        # new student on the platform.
+        verification.send_verification(user)
+
         messages.success(
             request,
             f"Welcome to Varsity Events, {user.first_name}! "
             "Tell us what you're into and we'll put the right events in front of you.",
         )
+        messages.info(
+            request,
+            f"We've emailed {user.email} a link to confirm the address. "
+            "Tickets and receipts go there, so it's worth doing now.",
+        )
         return redirect(f"{reverse('accounts:profile_edit')}?welcome=1")
 
     return render(request, "accounts/register.html", {"form": form})
+
+
+def verify_email(request, token):
+    """The link from the email. Deliberately open — no sign-in required.
+
+    People read email on a different device from the one they signed up on, and
+    demanding a password first is how a confirmation link goes unclicked.
+    Holding the token is the proof; that is what it is for.
+    """
+    user = verification.read_token(token)
+
+    if user is None:
+        messages.error(
+            request,
+            "That confirmation link is expired or invalid. Sign in and we'll send a fresh one.",
+        )
+        return redirect("accounts:login" if not request.user.is_authenticated else "accounts:profile")
+
+    if verification.mark_verified(user):
+        messages.success(request, "Email confirmed — thank you. You're all set.")
+    else:
+        messages.info(request, "That address was already confirmed.")
+
+    return redirect("core:discover" if request.user.is_authenticated else "accounts:login")
+
+
+@login_required
+@require_POST
+@ratelimit(key="user", rate="5/h", method="POST", block=True)
+def resend_verification(request):
+    """A fresh link. Rate limited per user: each one costs an email."""
+    if request.user.email_is_verified:
+        messages.info(request, "Your email is already confirmed.")
+    elif verification.send_verification(request.user):
+        messages.success(request, f"Sent — check {request.user.email}.")
+    else:
+        messages.error(
+            request,
+            "We couldn't send that just now. Try again in a few minutes.",
+        )
+
+    return redirect(request.META.get("HTTP_REFERER") or "accounts:profile")
 
 
 @login_required
@@ -179,13 +235,20 @@ def profile(request):
         .exclude(status=Registration.Status.CANCELLED)
         .select_related("event", "event__organization")
     )
+    organizations = request.user.organizations.filter(memberships__is_active=True).distinct()
+
     context = {
         "profile_user": request.user,
         "upcoming_tickets": [r for r in registrations if not r.event.has_ended][:4],
-        "ticket_count": registrations.count(),
-        "bookmark_count": Bookmark.objects.filter(user=request.user).count(),
-        "organizations": request.user.organizations.filter(memberships__is_active=True).distinct(),
-        "hosted_count": Event.objects.filter(created_by=request.user).count(),
+        "organizations": organizations,
+        # A list rather than four separate names, so the template renders one
+        # loop and adding a figure doesn't mean editing markup in two places.
+        "stats": [
+            {"label": "Tickets", "value": registrations.count()},
+            {"label": "Saved", "value": Bookmark.objects.filter(user=request.user).count()},
+            {"label": "Societies", "value": organizations.count()},
+            {"label": "Hosted", "value": Event.objects.filter(created_by=request.user).count()},
+        ],
     }
     return render(request, "accounts/profile.html", context)
 
@@ -199,7 +262,23 @@ def profile_edit(request):
     )
 
     if request.method == "POST" and form.is_valid():
+        # Changing the address un-proves it. Otherwise confirming
+        # you@gmail.com and then editing it to src@uz.ac.zw would carry the
+        # tick across to an address nobody has ever checked.
+        moved = "email" in form.changed_data
+        if moved:
+            request.user.email_verified_at = None
+
         form.save()
+
+        if moved:
+            verification.send_verification(request.user)
+            messages.info(
+                request,
+                f"We've sent a confirmation link to {request.user.email}. "
+                "Until you click it that address counts as unconfirmed.",
+            )
+
         if is_welcome or request.POST.get("welcome") == "1":
             messages.success(request, "You're all set — here's what's on across Zimbabwe.")
             return redirect("core:discover")

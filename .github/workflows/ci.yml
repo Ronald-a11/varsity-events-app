@@ -97,6 +97,14 @@ jobs:
           # doesn't fire on the key itself and hide a real finding behind it.
           DJANGO_SECRET_KEY: NotARealKeyJustLongEnoughToPassTheLengthCheckInCI012345
           DJANGO_ALLOWED_HOSTS: varsityevents.app
+          # The three settings that fail silently in production rather than
+          # crashing: mail that evaporates, uploads wiped by the next deploy,
+          # and emailed links pointing at localhost. See core/checks.py. Values
+          # here are shaped like the real ones, not the real ones — the job is
+          # asserting the checks can be satisfied, not talking to anything.
+          EMAIL_HOST: smtp.example.com
+          SITE_BASE_URL: https://varsityevents.app
+          AWS_STORAGE_BUCKET_NAME: varsity-events-ci
         run: python manage.py check --deploy --fail-level WARNING
 
       - name: A missing SECRET_KEY must stop a production boot, not be papered over
@@ -147,6 +155,16 @@ jobs:
           PY
           node --check sw.rendered.js
           rm sw.rendered.js
+
+      # Static JS is served as-is, so a syntax error in it never reaches Python
+      # and never fails a test — its only symptom is a feature that silently
+      # stops working in the field. The door scanner is exactly that shape.
+      - name: Static JavaScript parses
+        run: |
+          for file in static/js/*.js; do
+            echo "checking $file"
+            node --check "$file"
+          done
 
       - name: The manifest is valid JSON
         run: |

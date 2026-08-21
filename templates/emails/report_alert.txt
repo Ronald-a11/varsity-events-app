@@ -1,0 +1,23 @@
+A {{ target_kind }} has been reported.
+
+Somebody who can see it thinks it should not be up. It is still live - nothing
+is taken down automatically.
+
+{{ target_name }}
+{{ report.get_reason_display }}
+{% if report.detail %}
+"{{ report.detail }}"
+{% endif %}
+Reported by {{ report.reporter.display_name }}
+
+Open the queue:
+{{ queue_url }}
+
+See it as they do:
+{{ target_url }}
+
+Only the first report about something sends one of these, so more people may
+have flagged it since.
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.

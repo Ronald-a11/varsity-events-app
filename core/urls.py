@@ -28,4 +28,11 @@ urlpatterns = [
         views.staff_society_action,
         name="staff_society_action",
     ),
+    # Telling us something on the feed shouldn't be. <kind> is event|society.
+    path("report/<str:kind>/<slug:slug>/", views.report, name="report"),
+    path("staff/reports/", views.staff_reports, name="staff_reports"),
+    path("staff/reports/<int:pk>/<str:action>/", views.staff_report_action, name="staff_report_action"),
+    # Societies asking to be handed to their real committee.
+    path("staff/claims/", views.staff_claims, name="staff_claims"),
+    path("staff/claims/<int:pk>/<str:action>/", views.staff_claim_action, name="staff_claim_action"),
 ]

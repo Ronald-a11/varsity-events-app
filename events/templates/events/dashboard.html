@@ -55,6 +55,32 @@
       </section>
     {% endif %}
 
+    <!-- Waiting on us -->
+    {% if in_review %}
+      <section class="mt-10">
+        <h2 class="section-title">With us for checking</h2>
+        <p class="mt-1 text-sm text-ink-subtle">
+          A new society's events get one look before they reach students. We'll email you either
+          way, and once you're verified they go straight up.
+        </p>
+        <div class="mt-4 space-y-3">
+          {% for event in in_review %}
+            <div class="card flex flex-wrap items-center gap-4 p-4">
+              <span class="chip bg-flame-500/10 text-flame-600 dark:text-flame-400">In review</span>
+              <div class="min-w-0 flex-1">
+                <h3 class="truncate font-semibold text-ink">{{ event.title }}</h3>
+                <p class="text-xs text-ink-subtle">
+                  {{ event.starts_at|date:"D, j M Y · H:i" }} · {{ event.organization.name }}
+                  {% if event.submitted_at %}· sent {{ event.submitted_at|timesince }} ago{% endif %}
+                </p>
+              </div>
+              <a href="{% url 'events:edit' event.slug %}" class="btn-ghost btn-sm">Edit</a>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
     <!-- Drafts -->
     {% if drafts %}
       <section class="mt-10">
@@ -66,6 +92,11 @@
               <div class="min-w-0 flex-1">
                 <h3 class="truncate font-semibold text-ink">{{ event.title }}</h3>
                 <p class="text-xs text-ink-subtle">{{ event.starts_at|date:"D, j M Y · H:i" }} · {{ event.organization.name }}</p>
+                {% if event.review_note %}
+                  <p class="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Sent back: {{ event.review_note }}
+                  </p>
+                {% endif %}
               </div>
               <a href="{% url 'events:edit' event.slug %}" class="btn-primary btn-sm">Finish &amp; publish</a>
             </div>

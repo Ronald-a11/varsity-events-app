@@ -329,6 +329,15 @@ class Command(BaseCommand):
             action="store_true",
             help="Skip generating banners and logos (much faster, plainer cards).",
         )
+        parser.add_argument(
+            "--reference-only",
+            action="store_true",
+            help=(
+                "Load only the real reference data - the 18 Zimbabwean universities "
+                "and the categories - and invent nothing. This is what a production "
+                "database wants: without universities nobody can even sign up."
+            ),
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -357,6 +366,21 @@ class Command(BaseCommand):
 
         universities = self._create_universities()
         categories = self._create_categories()
+
+        # The reference data is the only part of this command that is true.
+        # Everything below invents societies, students and ticket sales, which
+        # a live deployment must never be given.
+        if options["reference_only"]:
+            self.stdout.write("")
+            self.stdout.write(self.style.SUCCESS("Reference data ready."))
+            self.stdout.write(
+                f"  {University.objects.count()} universities - "
+                f"{Category.objects.count()} categories"
+            )
+            self.stdout.write("")
+            self.stdout.write("Nothing was invented. Run `manage.py preflight` to see what's left.")
+            return
+
         venues = self._create_venues(universities)
         organizers = self._create_organizers(universities)
         students = self._create_students(universities, categories, options["students"])

@@ -1,0 +1,20 @@
+{{ payout.amount_display }} is on its way.
+
+Your ticket takings for {{ organization.name }}, less our fee.
+
+Tickets sold   {{ payout.ticket_count }}
+Collected      {{ payout.currency }} {{ payout.gross_amount }}
+Our fee       -{{ payout.currency }} {{ payout.fee_amount }}
+Sent to you    {{ payout.amount_display }}
+
+Sent by {{ payout.get_method_display }}{% if payout.destination %} to {{ payout.destination }}{% endif %}
+Confirmation code: {{ payout.external_reference }}
+Our reference: {{ payout.reference }}
+
+See every ticket in this payout:
+{{ statement_url }}
+
+If the numbers do not match yours, reply and we will go through it with you.
+
+--
+{{ SITE_NAME }} - every university event in Zimbabwe, one place.

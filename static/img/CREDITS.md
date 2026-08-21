@@ -1,41 +1,39 @@
 # Image credits
 
-Every third-party image in this directory, where it came from, and what the
-licence allows. Anything not listed here was drawn by us — see
-`core/imagegen.py` for the seed artwork and `manage.py make_icons` for the PWA
-icons, both of which are generated rather than downloaded precisely so there is
-nothing to record.
+**Nothing in this directory is third-party.** Every image here was drawn by
+this repository and can be regenerated from source:
 
-Keep this file honest. A stock photo whose provenance nobody wrote down is a
-stock photo somebody eventually has to remove.
+| File | Made by |
+| --- | --- |
+| `hero-universities.jpg` | `python manage.py make_hero` |
+| `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` | `python manage.py make_icons` |
+
+The event banners, society logos and covers under `media/` come from
+`core/imagegen.py` by way of `seed_demo`, on the same principle.
+
+Keep it that way where you can. Generated art is reproducible, costs nothing,
+carries no licence to honour, and produces the same bytes on every run — so a
+rebuild is never a spurious diff.
 
 ---
 
-## `hero-crowd.jpg`
+## If you do add a third-party image
 
-The homepage hero.
+Record it here before you commit it: source, creator, licence, and the date you
+downloaded it. A stock photo whose provenance nobody wrote down is a stock
+photo somebody eventually has to remove in a hurry.
 
-| | |
-| --- | --- |
-| **Source** | [Unsplash](https://unsplash.com/photos/crowd-facing-lighted-stage-eXVd7gDPO9A) |
-| **Photographer** | ActionVance |
-| **Licence** | [Unsplash License](https://unsplash.com/license) |
-| **Downloaded** | 2026-08-21 |
-| **Original** | `photo-1540039155733-5bb30b53aa14`, fetched at `w=2000&q=68` |
+## What used to be here
 
-The Unsplash License grants an irrevocable, worldwide, non-exclusive right to
-use the photo for free, **including commercially**, without asking permission.
-Attribution is appreciated but not required — this file is that attribution.
+`hero-crowd.jpg` — a licensed Unsplash photograph of a concert crowd
+(ActionVance, Unsplash License), used briefly as the homepage hero and removed
+on 2026-08-21.
 
-The one thing it does **not** allow is compiling photos to build a competing
-service, which is not what this is.
+Two things were wrong with it, and both are worth remembering if the temptation
+returns. It said *music night* about a platform that is also careers fairs,
+moot courts, blood drives and robotics showcases. And it was somebody else's
+campus standing in for a Zimbabwean one, on a site whose entire argument is
+that it tells students the truth.
 
-Chosen because the light in it happens to be the brand: indigo through the
-upper left, flame orange off the stage on the right. The crowd is silhouetted,
-so nobody in it is identifiable and no model release is in question.
-
-**It is not a Zimbabwean campus, and that is a compromise.** Replace it with a
-real photograph from a real event on this platform as soon as there is one —
-a site whose whole argument is that it tells students the truth is the wrong
-place for stock photography, and the sooner this file has nothing in it the
-better.
+`make_hero` says the actual thing instead: eighteen universities, the eight
+kinds of event they put on, all of it arriving in one place.

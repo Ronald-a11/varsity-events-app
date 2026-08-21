@@ -2,6 +2,7 @@
 
 import json
 from datetime import timedelta
+from pathlib import Path
 
 from django.test import TestCase
 from django.urls import reverse
@@ -277,3 +278,36 @@ class TicketRendersNoCommentaryTests(OfflineTicketTests):
         for leak in ("{#", "#}", "{%", "%}", "{{", "}}"):
             with self.subTest(leak=leak):
                 self.assertNotIn(leak, body)
+
+
+class HeroArtworkTests(TestCase):
+    """The homepage picture is generated, so it can be checked rather than eyeballed."""
+
+    def test_it_draws_a_usable_jpeg_at_the_size_asked_for(self):
+        from PIL import Image
+
+        from core.imagegen import make_hero
+
+        image = Image.open(make_hero(size=(1200, 500)))
+
+        self.assertEqual(image.size, (1200, 500))
+        self.assertEqual(image.format, "JPEG")
+
+    def test_it_is_deterministic(self):
+        """Same bytes every run, or committing the output is a rolling diff."""
+        from core.imagegen import make_hero
+
+        self.assertEqual(
+            make_hero(size=(600, 250)).getvalue(),
+            make_hero(size=(600, 250)).getvalue(),
+        )
+
+    def test_the_committed_hero_exists_and_is_the_one_the_page_asks_for(self):
+        """CI has no Pillow step, so a missing file here is a broken homepage."""
+        from django.conf import settings
+
+        path = Path(settings.BASE_DIR) / "static" / "img" / "hero-universities.jpg"
+        self.assertTrue(path.exists(), "Run `manage.py make_hero` and commit the result.")
+
+        response = self.client.get("/")
+        self.assertContains(response, "hero-universities")

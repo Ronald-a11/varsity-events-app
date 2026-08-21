@@ -17,34 +17,31 @@
     never arrives at all.
   {% endcomment %}
   <section class="relative overflow-hidden bg-brand-950">
-    <img src="{% static 'img/hero-crowd.jpg' %}" alt=""
+    <img src="{% static 'img/hero-universities.jpg' %}"
+         alt="The eighteen Zimbabwean universities, every kind of event they put on, all converging on one place."
          class="absolute inset-0 h-full w-full object-cover object-center"
          fetchpriority="high" decoding="async" />
 
     {% comment %}
       Three overlays, each doing a different job.
 
-      The flat wash takes the overall brightness down a little. The scrim is
-      the one that matters: a soft pool of darkness under the words that fades
-      out before the edges, so the picture keeps doing its work where it is
-      strongest — silhouetted hands at the foot, stage colour at the sides —
-      while the middle stays calm enough to read. The vertical gradient
-      darkens only the top, where the transparent nav sits, and the foot, where
-      the hero hands off to the page colour without ending on a hard line.
+      The artwork is drawn for this — dark ground, university nodes held high,
+      the hub low under the buttons, and only curves crossing the band where
+      the headline lands — so these are lighter than they were under the stock
+      photograph they replaced.
 
-      A flat wash on its own could not fix this. The brightest part of the
-      photograph is the stage, and the crop moves it: dead centre behind the
-      text at one viewport width, off to the side at another. So the type also
-      carries its own shadow (.text-on-photo) and stops depending on what
-      happens to be behind it.
+      The flat wash takes the overall brightness down a touch. The scrim is a
+      soft pool under the words. The vertical gradient darkens only the top,
+      where the transparent nav sits, and the foot, where the hero hands off to
+      the page colour without ending on a hard line.
 
-      Tuned so the crowd is still legible. Stacking enough darkness to make
-      text trivially safe leaves a photograph nobody can see, which is the
-      same as having no photograph and a slower page.
+      The type still carries its own shadow (.text-on-photo). The hub is the
+      brightest thing in the frame and the crop moves with the viewport, so
+      legibility should not depend on what happens to be behind a given word.
     {% endcomment %}
-    <div class="absolute inset-0 bg-brand-950/35"></div>
-    <div class="absolute inset-0 hero-scrim"></div>
-    <div class="absolute inset-0 bg-gradient-to-b from-brand-950/70 via-transparent to-brand-950/85"></div>
+    <div class="absolute inset-0 bg-brand-950/20"></div>
+    <div class="absolute inset-0 hero-scrim opacity-70"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-brand-950/55 via-transparent to-brand-950/80"></div>
 
     <div class="relative mx-auto max-w-4xl px-4 py-24 text-center sm:px-6 lg:py-36">
       <span class="chip animate-fade-up bg-brand-950/50 text-white ring-1 ring-inset ring-white/25 backdrop-blur">
